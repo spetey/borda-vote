@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Authored or modified by Claude - 2025-09-25 -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Borda Count Voting</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #34495e;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        input[type="password"],
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="password"]:focus,
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #7f8c8d;
+        }
+
+        .message {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            font-weight: 500;
+        }
+
+        .error {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .success {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .info {
+            background: #3498db;
+            color: white;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .nomination-list {
+            list-style: none;
+            margin-bottom: 20px;
+        }
+
+        .nomination-list li {
+            background: #ecf0f1;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+
+        .ranking-item {
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: move;
+            user-select: none;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .ranking-item:hover {
+            border-color: #3498db;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .ranking-item.dragging {
+            opacity: 0.5;
+            transform: rotate(5deg);
+        }
+
+        .rank-number {
+            background: #3498db;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .results-table th {
+            background: #34495e;
+            color: white;
+        }
+
+        .results-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status-card {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .status-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .counter {
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .status-info {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Login Screen -->
+        <div id="login-screen" class="card">
+            <h1>Borda Count Voting</h1>
+            <div class="form-group">
+                <label for="password">Enter your password:</label>
+                <input type="password" id="password" placeholder="Your voting password">
+            </div>
+            <button onclick="login()">Login</button>
+        </div>
+
+        <!-- Main Voting Interface -->
+        <div id="voting-interface" class="hidden">
+            <div class="card">
+                <h1 id="vote-title">Loading...</h1>
+                <div id="status-display"></div>
+            </div>
+
+            <!-- Nomination Phase -->
+            <div id="nomination-phase" class="card hidden">
+                <h2>Submit Your Nominations</h2>
+                <div id="existing-nominations">
+                    <h3>Current Nominations:</h3>
+                    <ul id="nominations-list" class="nomination-list"></ul>
+                </div>
+
+                <div class="form-group">
+                    <label for="nomination-text">Your nomination:</label>
+                    <textarea id="nomination-text" placeholder="Enter your nomination here..." maxlength="500"></textarea>
+                </div>
+                <div class="counter" id="nomination-counter">0 of 2 nominations submitted</div>
+                <button onclick="submitNomination()" id="submit-nomination-btn">Submit Nomination</button>
+                <button onclick="markNominationComplete()" id="mark-complete-btn" class="btn-secondary">Mark Complete (Done Nominating)</button>
+            </div>
+
+            <!-- Ranking Phase -->
+            <div id="ranking-phase" class="card hidden">
+                <h2>Rank Your Preferences</h2>
+                <p>Drag and drop to rank the nominations from most preferred (top) to least preferred (bottom):</p>
+                <div id="ranking-list"></div>
+                <button onclick="submitRankings()" id="submit-rankings-btn" disabled>Submit Rankings</button>
+            </div>
+
+            <!-- Results Display -->
+            <div id="results-phase" class="card hidden">
+                <h2>Voting Results</h2>
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Nomination</th>
+                            <th>Borda Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Message Display -->
+        <div id="message-display"></div>
+    </div>
+
+    <script>
+        // Authored or modified by Claude - 2025-09-25
+
+        let currentUser = null;
+        let voteInfo = null;
+        let nominations = [];
+        let rankings = [];
+
+        // Utility functions
+        function showMessage(text, type = 'info') {
+            const messageDiv = document.getElementById('message-display');
+            messageDiv.innerHTML = `<div class="message ${type}">${text}</div>`;
+            setTimeout(() => messageDiv.innerHTML = '', 5000);
+        }
+
+        function showElement(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function hideElement(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        async function apiCall(action, data = null, queryParams = '') {
+            try {
+                let url = `api.php?action=${action}`;
+                if (queryParams) {
+                    url += `&${queryParams}`;
+                }
+
+                const response = await fetch(url, {
+                    method: data ? 'POST' : 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: data ? JSON.stringify(data) : null
+                });
+
+                // Check if response is OK
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // Get response text first to debug
+                const responseText = await response.text();
+                console.log('API Response:', responseText);
+
+                // Try to parse JSON
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('JSON Parse Error:', parseError);
+                    console.error('Response text:', responseText);
+                    throw new Error('Server returned invalid JSON response');
+                }
+
+                if (!result.success) {
+                    throw new Error(result.error || 'Unknown error');
+                }
+
+                return result.data;
+            } catch (error) {
+                console.error('API Error:', error);
+                showMessage(error.message, 'error');
+                throw error;
+            }
+        }
+
+        // Login functionality
+        async function login() {
+            const password = document.getElementById('password').value;
+            if (!password) {
+                showMessage('Please enter your password', 'error');
+                return;
+            }
+
+            try {
+                const data = await apiCall('login', { password });
+                currentUser = data.user_id;
+                voteInfo = data.vote_info;
+
+                hideElement('login-screen');
+                showElement('voting-interface');
+
+                document.getElementById('vote-title').textContent = voteInfo.title;
+                await updateStatus();
+                showCurrentPhase();
+
+                showMessage('Login successful!', 'success');
+            } catch (error) {
+                // Error already shown by apiCall
+            }
+        }
+
+        // Status updates
+        async function updateStatus() {
+            try {
+                // Check for auto-advancement first
+                await fetch('admin_api.php?action=check_auto_advance').catch(() => {}); // Ignore errors
+
+                const status = await apiCall('get_status', null, `vote_id=${voteInfo.vote_id || 1}`);
+
+                const statusHtml = `
+                    <div class="status-info">
+                        <div class="status-card">
+                            <div class="status-number">${status.total_users}</div>
+                            <div>Total Participants</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-number">${status.users_nominated}</div>
+                            <div>Submitted Nominations</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-number">${status.users_ranked}</div>
+                            <div>Submitted Rankings</div>
+                        </div>
+                        <div class="status-card">
+                            <div class="status-number">${status.total_nominations}</div>
+                            <div>Total Nominations</div>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('status-display').innerHTML = statusHtml;
+
+                // Check if phase changed and update UI
+                if (voteInfo.phase !== status.phase) {
+                    voteInfo.phase = status.phase;
+                    showCurrentPhase();
+
+                    // Show phase change message
+                    const phaseNames = {
+                        'nominating': 'Nomination Phase',
+                        'ranking': 'Ranking Phase',
+                        'finished': 'Results Available'
+                    };
+                    showMessage(`Phase advanced to: ${phaseNames[status.phase]}`, 'success');
+                }
+            } catch (error) {
+                console.error('Status update failed:', error);
+            }
+        }
+
+        function showCurrentPhase() {
+            hideElement('nomination-phase');
+            hideElement('ranking-phase');
+            hideElement('results-phase');
+
+            if (voteInfo.phase === 'nominating') {
+                showElement('nomination-phase');
+                loadNominations();
+            } else if (voteInfo.phase === 'ranking') {
+                showElement('ranking-phase');
+                loadRankingInterface();
+            } else if (voteInfo.phase === 'finished') {
+                showElement('results-phase');
+                loadResults();
+            }
+        }
+
+        // Nomination phase
+        async function loadNominations() {
+            try {
+                const data = await apiCall('get_nominations', null, `vote_id=${voteInfo.vote_id || 1}`);
+                const list = document.getElementById('nominations-list');
+                list.innerHTML = '';
+
+                data.forEach(nomination => {
+                    const li = document.createElement('li');
+                    li.textContent = nomination;
+                    list.appendChild(li);
+                });
+
+                await updateNominationCounter();
+            } catch (error) {
+                console.error('Failed to load nominations:', error);
+            }
+        }
+
+        async function updateNominationCounter() {
+            try {
+                const userStatus = await apiCall('get_user_status', null, `user_id=${currentUser}`);
+                const counter = document.getElementById('nomination-counter');
+                const submitBtn = document.getElementById('submit-nomination-btn');
+                const completeBtn = document.getElementById('mark-complete-btn');
+                const nominationText = document.getElementById('nomination-text');
+
+                counter.textContent = `${userStatus.current_nominations} of ${userStatus.max_nominations_per_user} nominations submitted`;
+
+                // Handle UI state based on completion status
+                if (userStatus.has_nominated) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Nomination Complete';
+                    completeBtn.style.display = 'none';
+                    nominationText.disabled = true;
+                    nominationText.placeholder = 'You have completed your nominations';
+                } else if (userStatus.current_nominations >= userStatus.max_nominations_per_user) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Maximum Reached';
+                    completeBtn.style.display = 'inline-block';
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Nomination';
+                    completeBtn.style.display = 'inline-block';
+                }
+            } catch (error) {
+                console.error('Failed to update nomination counter:', error);
+            }
+        }
+
+        async function submitNomination() {
+            const text = document.getElementById('nomination-text').value.trim();
+            if (!text) {
+                showMessage('Please enter a nomination', 'error');
+                return;
+            }
+
+            try {
+                await apiCall('submit_nomination', {
+                    user_id: currentUser,
+                    text: text
+                });
+
+                document.getElementById('nomination-text').value = '';
+                showMessage('Nomination submitted successfully!', 'success');
+                await loadNominations();
+                await updateStatus();
+            } catch (error) {
+                // Error already shown by apiCall
+            }
+        }
+
+        async function markNominationComplete() {
+            if (!confirm('Are you sure you want to mark your nominations as complete? You won\'t be able to submit more nominations after this.')) {
+                return;
+            }
+
+            try {
+                await apiCall('mark_nomination_complete', {
+                    user_id: currentUser
+                });
+
+                showMessage('Nominations marked as complete!', 'success');
+                await updateNominationCounter();
+                await updateStatus();
+            } catch (error) {
+                // Error already shown by apiCall
+            }
+        }
+
+        // Ranking phase
+        async function loadRankingInterface() {
+            try {
+                const data = await apiCall('get_all_nominations', null, `vote_id=${voteInfo.vote_id || 1}`);
+                nominations = data;
+                rankings = data.map((nom, index) => ({
+                    nomination_id: nom.id,
+                    rank: index + 1,
+                    text: nom.text
+                }));
+
+                renderRankingList();
+            } catch (error) {
+                console.error('Failed to load nominations for ranking:', error);
+            }
+        }
+
+        function renderRankingList() {
+            const container = document.getElementById('ranking-list');
+            container.innerHTML = '';
+
+            rankings.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'ranking-item';
+                div.draggable = true;
+                div.dataset.nominationId = item.nomination_id;
+
+                div.innerHTML = `
+                    <span class="rank-number">${index + 1}</span>
+                    <span>${item.text}</span>
+                    <span style="opacity: 0.6;">Drag to reorder</span>
+                `;
+
+                div.addEventListener('dragstart', handleDragStart);
+                div.addEventListener('dragover', handleDragOver);
+                div.addEventListener('drop', handleDrop);
+                div.addEventListener('dragend', handleDragEnd);
+
+                container.appendChild(div);
+            });
+
+            document.getElementById('submit-rankings-btn').disabled = false;
+        }
+
+        // Drag and drop functionality
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+
+            if (draggedElement !== this) {
+                const draggedId = parseInt(draggedElement.dataset.nominationId);
+                const targetId = parseInt(this.dataset.nominationId);
+
+                const draggedIndex = rankings.findIndex(r => r.nomination_id === draggedId);
+                const targetIndex = rankings.findIndex(r => r.nomination_id === targetId);
+
+                // Reorder rankings array
+                const [draggedItem] = rankings.splice(draggedIndex, 1);
+                rankings.splice(targetIndex, 0, draggedItem);
+
+                // Update ranks
+                rankings.forEach((item, index) => {
+                    item.rank = index + 1;
+                });
+
+                renderRankingList();
+            }
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            draggedElement = null;
+        }
+
+        async function submitRankings() {
+            try {
+                const rankingData = {
+                    user_id: currentUser,
+                    rankings: rankings.map(r => ({
+                        nomination_id: r.nomination_id,
+                        rank: r.rank
+                    }))
+                };
+
+                console.log('Submitting rankings:', rankingData);
+
+                await apiCall('submit_rankings', rankingData);
+
+                showMessage('Rankings submitted successfully!', 'success');
+                await updateStatus();
+
+                // Check if voting is complete
+                setTimeout(showCurrentPhase, 2000);
+            } catch (error) {
+                // Error already shown by apiCall
+            }
+        }
+
+        // Results phase
+        async function loadResults() {
+            try {
+                const results = await apiCall('get_results', null, `vote_id=${voteInfo.vote_id || 1}`);
+                const tbody = document.getElementById('results-body');
+                tbody.innerHTML = '';
+
+                results.forEach(result => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${result.rank}</td>
+                        <td>${result.nomination}</td>
+                        <td>${result.score}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                showMessage('Results loaded successfully!', 'success');
+            } catch (error) {
+                console.error('Failed to load results:', error);
+            }
+        }
+
+        // Handle Enter key on password input
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                login();
+            }
+        });
+
+        // Refresh status periodically
+        setInterval(() => {
+            if (currentUser) {
+                updateStatus();
+            }
+        }, 30000); // Every 30 seconds
+    </script>
+</body>
+</html>

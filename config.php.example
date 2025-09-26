@@ -1,0 +1,28 @@
+<?php
+// Authored or modified by Claude - 2025-09-25
+// Copy this file to config.php and configure your settings
+
+// Database configuration
+define('DB_PATH', __DIR__ . '/database/votes.sqlite');
+
+// Email configuration (for notifications)
+define('SMTP_HOST', 'smtp.example.com');
+define('SMTP_PORT', 587);
+define('SMTP_USERNAME', 'your_email@example.com');
+define('SMTP_PASSWORD', 'your_password');
+define('FROM_EMAIL', 'noreply@example.com');
+define('FROM_NAME', 'Borda Vote System');
+
+// Security settings
+define('SESSION_TIMEOUT', 3600); // 1 hour
+define('MAX_NOMINATION_LENGTH', 500);
+define('BCRYPT_ROUNDS', 12);
+
+// Debug mode
+define('DEBUG', false);
+
+// Session settings
+if (!session_id()) {
+    session_start();
+}
+?>
