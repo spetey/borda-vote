@@ -35,8 +35,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     switch ($action) {
         case 'create_vote':
-            if (!isset($input['title']) || !isset($input['participants']) || !is_array($input['participants'])) {
-                jsonResponse(false, null, 'Title and participants are required');
+            // Require admin authentication
+            require_once 'auth_api.php';
+            requireAdmin();
+
+            if (!isset($input['title']) || !isset($input['participant_user_ids']) || !is_array($input['participant_user_ids'])) {
+                jsonResponse(false, null, 'Title and participant user IDs are required');
+            }
+
+            if (count($input['participant_user_ids']) === 0) {
+                jsonResponse(false, null, 'At least one participant must be selected');
             }
 
             $pdo = getDb();
@@ -53,23 +61,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $voteId = $pdo->lastInsertId();
 
-                // Create users with random passwords
-                $passwords = [];
-                foreach ($input['participants'] as $email) {
-                    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                        continue;
+                // Add selected users to this vote
+                $stmt = $pdo->prepare('INSERT INTO user_votes (user_id, vote_id, role) VALUES (?, ?, ?)');
+                $participantCount = 0;
+
+                foreach ($input['participant_user_ids'] as $userId) {
+                    // Verify user exists
+                    $checkStmt = $pdo->prepare('SELECT id FROM global_users WHERE id = ? AND active = 1');
+                    $checkStmt->execute([$userId]);
+                    if ($checkStmt->fetch()) {
+                        $stmt->execute([$userId, $voteId, 'participant']);
+                        $participantCount++;
                     }
-
-                    $password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
-                    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-
-                    $stmt = $pdo->prepare('INSERT INTO users (vote_id, password_hash, email) VALUES (?, ?, ?)');
-                    $stmt->execute([$voteId, $passwordHash, $email]);
-
-                    $passwords[] = ['email' => $email, 'password' => $password];
                 }
 
-                jsonResponse(true, ['vote_id' => $voteId, 'passwords' => $passwords]);
+                if ($participantCount === 0) {
+                    // Clean up the vote if no valid participants
+                    $pdo->prepare('DELETE FROM votes WHERE id = ?')->execute([$voteId]);
+                    jsonResponse(false, null, 'No valid participants found');
+                }
+
+                jsonResponse(true, [
+                    'vote_id' => $voteId,
+                    'participant_count' => $participantCount,
+                    'message' => 'Vote created successfully'
+                ]);
+
             } catch (PDOException $e) {
                 jsonResponse(false, null, 'Database error: ' . $e->getMessage());
             }
@@ -148,12 +165,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $stmt = $pdo->query('
                 SELECT v.*,
-                       COUNT(DISTINCT u.id) as total_users,
+                       COUNT(DISTINCT uv.user_id) as total_users,
                        COUNT(DISTINCT n.id) as total_nominations,
-                       COUNT(DISTINCT CASE WHEN u.has_nominated = 1 THEN u.id END) as users_nominated,
-                       COUNT(DISTINCT CASE WHEN u.has_ranked = 1 THEN u.id END) as users_ranked
+                       COUNT(DISTINCT CASE WHEN uv.has_nominated = 1 THEN uv.user_id END) as users_nominated,
+                       COUNT(DISTINCT CASE WHEN uv.has_ranked = 1 THEN uv.user_id END) as users_ranked
                 FROM votes v
-                LEFT JOIN users u ON v.id = u.vote_id
+                LEFT JOIN user_votes uv ON v.id = uv.vote_id
                 LEFT JOIN nominations n ON v.id = n.vote_id
                 GROUP BY v.id
                 ORDER BY v.created_at DESC
@@ -170,10 +187,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Find votes in nomination phase where all users have completed nominations
             $stmt = $pdo->query('
                 SELECT v.id, v.title,
-                       COUNT(DISTINCT u.id) as total_users,
-                       COUNT(DISTINCT CASE WHEN u.has_nominated = 1 THEN u.id END) as completed_users
+                       COUNT(DISTINCT uv.user_id) as total_users,
+                       COUNT(DISTINCT CASE WHEN uv.has_nominated = 1 THEN uv.user_id END) as completed_users
                 FROM votes v
-                JOIN users u ON v.id = u.vote_id
+                JOIN user_votes uv ON v.id = uv.vote_id
                 WHERE v.phase = "nominating"
                 GROUP BY v.id
                 HAVING total_users = completed_users AND total_users > 0
@@ -189,10 +206,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Similar check for ranking phase
             $stmt = $pdo->query('
                 SELECT v.id, v.title,
-                       COUNT(DISTINCT u.id) as total_users,
-                       COUNT(DISTINCT CASE WHEN u.has_ranked = 1 THEN u.id END) as completed_users
+                       COUNT(DISTINCT uv.user_id) as total_users,
+                       COUNT(DISTINCT CASE WHEN uv.has_ranked = 1 THEN uv.user_id END) as completed_users
                 FROM votes v
-                JOIN users u ON v.id = u.vote_id
+                JOIN user_votes uv ON v.id = uv.vote_id
                 WHERE v.phase = "ranking"
                 GROUP BY v.id
                 HAVING total_users = completed_users AND total_users > 0
@@ -209,6 +226,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             jsonResponse(true, ['advanced_count' => $totalAdvanced, 'votes' => array_merge($votesToAdvance, $rankingVotesToAdvance)]);
         } catch (PDOException $e) {
             jsonResponse(false, null, 'Database error: ' . $e->getMessage());
+        }
+    } else if ($action === 'get_users') {
+        try {
+            // Require admin authentication
+            require_once 'auth_api.php';
+            requireAdmin();
+
+            $pdo = getDb();
+
+            $stmt = $pdo->query('
+                SELECT id, username, email, display_name, role, created_at, last_login, active
+                FROM global_users
+                WHERE active = 1
+                ORDER BY display_name
+            ');
+            $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            jsonResponse(true, $users);
+        } catch (Exception $e) {
+            jsonResponse(false, null, 'Error: ' . $e->getMessage());
         }
     } else if ($action === 'get_passwords') {
         $vote_id = $_GET['vote_id'] ?? null;

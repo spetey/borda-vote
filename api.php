@@ -52,8 +52,10 @@ function validateInput($data, $required_fields) {
     return true;
 }
 
-$action = $_GET['action'] ?? '';
 $input = json_decode(file_get_contents('php://input'), true) ?: [];
+$action = $input['action'] ?? $_GET['action'] ?? '';
+
+error_log("DEBUG api.php: action='$action', method=" . $_SERVER['REQUEST_METHOD'] . ", input=" . json_encode($input));
 
 switch ($action) {
     case 'login':
@@ -107,9 +109,25 @@ switch ($action) {
         jsonResponse(true, $nominations);
         break;
 
+    case 'get_user_nominations':
+        $vote_id = $_GET['vote_id'] ?? null;
+        $user_id = $_GET['user_id'] ?? null;
+
+        if (!$vote_id || !$user_id) {
+            jsonResponse(false, null, 'Vote ID and user ID are required');
+        }
+
+        $pdo = getDb();
+        $stmt = $pdo->prepare('SELECT id, text FROM nominations WHERE vote_id = ? AND user_id = ? ORDER BY created_at');
+        $stmt->execute([$vote_id, $user_id]);
+        $nominations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        jsonResponse(true, $nominations);
+        break;
+
     case 'submit_nomination':
-        if (!validateInput($input, ['user_id', 'text'])) {
-            jsonResponse(false, null, 'User ID and text are required');
+        if (!validateInput($input, ['user_id', 'vote_id', 'text'])) {
+            jsonResponse(false, null, 'User ID, vote ID, and text are required');
         }
 
         if (strlen($input['text']) > MAX_NOMINATION_LENGTH) {
@@ -118,10 +136,24 @@ switch ($action) {
 
         $pdo = getDb();
 
-        // Check if user has reached nomination limit
-        $stmt = $pdo->prepare('SELECT u.vote_id, v.max_nominations_per_user, COUNT(n.id) as current_count FROM users u JOIN votes v ON u.vote_id = v.id LEFT JOIN nominations n ON n.user_id = u.id WHERE u.id = ?');
-        $stmt->execute([$input['user_id']]);
+        // Check if user is participant and has reached nomination limit
+        $stmt = $pdo->prepare('
+            SELECT uv.vote_id, v.max_nominations_per_user, COUNT(n.id) as current_count
+            FROM user_votes uv
+            JOIN votes v ON uv.vote_id = v.id
+            LEFT JOIN nominations n ON n.user_id = uv.user_id AND n.vote_id = uv.vote_id
+            WHERE uv.user_id = ? AND uv.vote_id = ?
+            GROUP BY uv.vote_id, v.max_nominations_per_user
+        ');
+        error_log("DEBUG: Executing query with user_id=" . $input['user_id'] . ", vote_id=" . $input['vote_id']);
+        $stmt->execute([$input['user_id'], $input['vote_id']]);
         $user_info = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        error_log("DEBUG: user_info = " . json_encode($user_info));
+
+        if (!$user_info) {
+            jsonResponse(false, null, 'User is not a participant in this vote');
+        }
 
         if ($user_info['current_count'] >= $user_info['max_nominations_per_user']) {
             jsonResponse(false, null, 'Maximum nominations reached');
@@ -137,15 +169,45 @@ switch ($action) {
         // Insert nomination
         $stmt = $pdo->prepare('INSERT INTO nominations (vote_id, user_id, text) VALUES (?, ?, ?)');
         $stmt->execute([$user_info['vote_id'], $input['user_id'], $input['text']]);
+        $nominationId = $pdo->lastInsertId();
 
         // Only mark as complete if they've reached the maximum
         $newCount = $user_info['current_count'] + 1;
+        $autoAdvanced = false;
         if ($newCount >= $user_info['max_nominations_per_user']) {
-            $stmt = $pdo->prepare('UPDATE users SET has_nominated = TRUE WHERE id = ?');
-            $stmt->execute([$input['user_id']]);
+            $stmt = $pdo->prepare('UPDATE user_votes SET has_nominated = TRUE WHERE user_id = ? AND vote_id = ?');
+            $stmt->execute([$input['user_id'], $user_info['vote_id']]);
+
+            // Check if all users have completed nominations for this vote
+            $stmt = $pdo->prepare('
+                SELECT v.phase,
+                       COUNT(DISTINCT uv.user_id) as total_users,
+                       COUNT(DISTINCT CASE WHEN uv.has_nominated = 1 THEN uv.user_id END) as completed_users
+                FROM votes v
+                JOIN user_votes uv ON v.id = uv.vote_id
+                WHERE v.id = ?
+                GROUP BY v.id, v.phase
+            ');
+            $stmt->execute([$user_info['vote_id']]);
+            $voteStatus = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Auto-advance if all users have completed nominations
+            if ($voteStatus && $voteStatus['phase'] === 'nominating' &&
+                $voteStatus['total_users'] === $voteStatus['completed_users'] &&
+                $voteStatus['total_users'] > 0) {
+
+                $stmt = $pdo->prepare('UPDATE votes SET phase = "ranking" WHERE id = ?');
+                $stmt->execute([$user_info['vote_id']]);
+                $autoAdvanced = true;
+            }
         }
 
-        jsonResponse(true, 'Nomination submitted successfully');
+        $message = 'Nomination submitted successfully';
+        if ($autoAdvanced) {
+            $message .= ' - All users finished, vote advanced to ranking phase!';
+        }
+
+        jsonResponse(true, ['nomination_id' => $nominationId, 'message' => $message]);
         break;
 
     case 'get_all_nominations':
@@ -164,8 +226,8 @@ switch ($action) {
 
     case 'submit_rankings':
         try {
-            if (!validateInput($input, ['user_id', 'rankings'])) {
-                jsonResponse(false, null, 'User ID and rankings are required');
+            if (!validateInput($input, ['user_id', 'vote_id', 'rankings'])) {
+                jsonResponse(false, null, 'User ID, vote ID and rankings are required');
             }
 
             if (!is_array($input['rankings'])) {
@@ -173,15 +235,7 @@ switch ($action) {
             }
 
             $pdo = getDb();
-
-            // Get user's vote_id
-            $stmt = $pdo->prepare('SELECT vote_id FROM users WHERE id = ?');
-            $stmt->execute([$input['user_id']]);
-            $vote_id = $stmt->fetchColumn();
-
-            if (!$vote_id) {
-                jsonResponse(false, null, 'Invalid user ID');
-            }
+            $vote_id = $input['vote_id'];
 
             // Clear existing rankings for this user
             $stmt = $pdo->prepare('DELETE FROM rankings WHERE vote_id = ? AND user_id = ?');
@@ -198,10 +252,39 @@ switch ($action) {
             }
 
             // Update user ranking status
-            $stmt = $pdo->prepare('UPDATE users SET has_ranked = TRUE WHERE id = ?');
-            $stmt->execute([$input['user_id']]);
+            $stmt = $pdo->prepare('UPDATE user_votes SET has_ranked = TRUE WHERE user_id = ? AND vote_id = ?');
+            $stmt->execute([$input['user_id'], $vote_id]);
 
-            jsonResponse(true, 'Rankings submitted successfully');
+            // Check if all users have completed rankings for this vote
+            $stmt = $pdo->prepare('
+                SELECT v.phase,
+                       COUNT(DISTINCT uv.user_id) as total_users,
+                       COUNT(DISTINCT CASE WHEN uv.has_ranked = 1 THEN uv.user_id END) as completed_users
+                FROM votes v
+                JOIN user_votes uv ON v.id = uv.vote_id
+                WHERE v.id = ?
+                GROUP BY v.id, v.phase
+            ');
+            $stmt->execute([$vote_id]);
+            $voteStatus = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            // Auto-advance if all users have completed rankings
+            $autoAdvanced = false;
+            if ($voteStatus && $voteStatus['phase'] === 'ranking' &&
+                $voteStatus['total_users'] === $voteStatus['completed_users'] &&
+                $voteStatus['total_users'] > 0) {
+
+                $stmt = $pdo->prepare('UPDATE votes SET phase = "finished" WHERE id = ?');
+                $stmt->execute([$vote_id]);
+                $autoAdvanced = true;
+            }
+
+            $message = 'Rankings submitted successfully';
+            if ($autoAdvanced) {
+                $message .= ' - All users finished, vote completed!';
+            }
+
+            jsonResponse(true, $message);
         } catch (Exception $e) {
             error_log("Rankings submission error: " . $e->getMessage());
             jsonResponse(false, null, 'Database error: ' . $e->getMessage());
@@ -244,25 +327,29 @@ switch ($action) {
         break;
 
     case 'get_status':
+        error_log("DEBUG: get_status called with vote_id: " . ($_GET['vote_id'] ?? 'NULL'));
         $vote_id = $_GET['vote_id'] ?? null;
         if (!$vote_id) {
+            error_log("DEBUG: No vote_id provided");
             jsonResponse(false, null, 'Vote ID is required');
         }
 
         $pdo = getDb();
         $stmt = $pdo->prepare('
             SELECT v.title, v.phase, v.nomination_deadline, v.ranking_deadline,
-                   COUNT(DISTINCT u.id) as total_users,
-                   COUNT(DISTINCT CASE WHEN u.has_nominated = 1 THEN u.id END) as users_nominated,
-                   COUNT(DISTINCT CASE WHEN u.has_ranked = 1 THEN u.id END) as users_ranked,
+                   COUNT(DISTINCT uv.user_id) as total_users,
+                   COUNT(DISTINCT CASE WHEN uv.has_nominated = 1 THEN uv.user_id END) as users_nominated,
+                   COUNT(DISTINCT CASE WHEN uv.has_ranked = 1 THEN uv.user_id END) as users_ranked,
                    COUNT(DISTINCT n.id) as total_nominations
             FROM votes v
-            LEFT JOIN users u ON v.id = u.vote_id
+            LEFT JOIN user_votes uv ON v.id = uv.vote_id
             LEFT JOIN nominations n ON v.id = n.vote_id
             WHERE v.id = ?
         ');
         $stmt->execute([$vote_id]);
         $status = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        error_log("DEBUG: Query result for vote $vote_id: " . json_encode($status));
 
         jsonResponse(true, $status);
         break;
@@ -289,15 +376,39 @@ switch ($action) {
         break;
 
     case 'mark_nomination_complete':
-        if (!validateInput($input, ['user_id'])) {
-            jsonResponse(false, null, 'User ID is required');
+        if (!validateInput($input, ['user_id', 'vote_id'])) {
+            jsonResponse(false, null, 'User ID and vote ID are required');
         }
 
         $pdo = getDb();
-        $stmt = $pdo->prepare('UPDATE users SET has_nominated = TRUE WHERE id = ?');
-        $stmt->execute([$input['user_id']]);
+        $stmt = $pdo->prepare('UPDATE user_votes SET has_nominated = TRUE WHERE user_id = ? AND vote_id = ?');
+        $stmt->execute([$input['user_id'], $input['vote_id']]);
 
-        jsonResponse(true, 'Marked as complete');
+        // Check if all users have completed nominations for this vote
+        $stmt = $pdo->prepare('
+            SELECT v.phase,
+                   COUNT(DISTINCT uv.user_id) as total_users,
+                   COUNT(DISTINCT CASE WHEN uv.has_nominated = 1 THEN uv.user_id END) as completed_users
+            FROM votes v
+            JOIN user_votes uv ON v.id = uv.vote_id
+            WHERE v.id = ?
+            GROUP BY v.id, v.phase
+        ');
+        $stmt->execute([$input['vote_id']]);
+        $voteStatus = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Auto-advance if all users have completed nominations
+        if ($voteStatus && $voteStatus['phase'] === 'nominating' &&
+            $voteStatus['total_users'] === $voteStatus['completed_users'] &&
+            $voteStatus['total_users'] > 0) {
+
+            $stmt = $pdo->prepare('UPDATE votes SET phase = "ranking" WHERE id = ?');
+            $stmt->execute([$input['vote_id']]);
+
+            jsonResponse(true, 'Marked as complete. All users finished - vote advanced to ranking phase!');
+        } else {
+            jsonResponse(true, 'Marked as complete');
+        }
         break;
 
     default:

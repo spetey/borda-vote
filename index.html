@@ -241,14 +241,15 @@
 </head>
 <body>
     <div class="container">
-        <!-- Login Screen -->
-        <div id="login-screen" class="card">
+        <!-- Redirect Notice -->
+        <div class="card">
             <h1>Borda Count Voting</h1>
-            <div class="form-group">
-                <label for="password">Enter your password:</label>
-                <input type="password" id="password" placeholder="Your voting password">
+            <div style="text-align: center; padding: 40px 20px;">
+                <p style="margin-bottom: 20px; font-size: 18px;">Welcome! This system now uses registered user accounts.</p>
+                <p style="margin-bottom: 30px; color: #7f8c8d;">You'll be redirected to the login page in a moment...</p>
+                <a href="auth.php" class="btn" style="margin-right: 10px;">Login / Register</a>
+                <a href="dashboard.php" class="btn btn-secondary">Go to Dashboard</a>
             </div>
-            <button onclick="login()">Login</button>
         </div>
 
         <!-- Main Voting Interface -->
@@ -695,12 +696,10 @@
             }
         });
 
-        // Refresh status periodically
-        setInterval(() => {
-            if (currentUser) {
-                updateStatus();
-            }
-        }, 30000); // Every 30 seconds
+        // Auto-redirect to new auth system
+        setTimeout(() => {
+            window.location.href = 'auth.php';
+        }, 3000); // Redirect after 3 seconds
     </script>
 </body>
 </html>

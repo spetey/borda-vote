@@ -28,8 +28,14 @@ if (DEBUG) {
     error_reporting(E_ALL);
 }
 
-// Session settings
-if (!session_id()) {
+// Session settings (only start if not already started)
+if (session_status() === PHP_SESSION_NONE) {
+    // Use system temp directory with our own subdirectory
+    $sessionPath = sys_get_temp_dir() . '/borda_vote_sessions';
+    if (!is_dir($sessionPath)) {
+        mkdir($sessionPath, 0777, true);
+    }
+    session_save_path($sessionPath);
     session_start();
 }
 ?>

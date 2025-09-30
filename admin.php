@@ -1,3 +1,18 @@
+<?php
+// Authored or modified by Claude - 2025-09-25
+// Handle PHP logic before any output
+
+// Include config which handles session starting
+require_once 'config.php';
+
+// Require admin authentication to view this page
+require_once 'auth_api.php';
+$user = getCurrentUser();
+if (!$user || $user['role'] !== 'admin') {
+    header('Location: auth.php?redirect=' . urlencode($_SERVER['REQUEST_URI']));
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -201,8 +216,18 @@
 </head>
 <body>
     <div class="container">
+        <!-- Header -->
         <div class="card">
-            <h1>Borda Vote Administration</h1>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h1>Borda Vote Administration</h1>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span id="admin-welcome" style="color: #7f8c8d;">Welcome, Admin</span>
+                    <button onclick="logout()" class="btn-danger">Logout</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
 
             <!-- Create New Vote Form -->
             <div class="card">
@@ -231,8 +256,21 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="participants">Participants (one email per line):</label>
-                        <textarea id="participants" rows="5" placeholder="user1@example.com&#10;user2@example.com"></textarea>
+                        <label for="participants">Select Participants:</label>
+                        <div style="margin-bottom: 10px; color: #7f8c8d; font-size: 14px;">
+                            Choose which registered users can participate in this vote
+                        </div>
+
+                        <!-- Registered Users Selection -->
+                        <div id="user-selection">
+                            <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; border-radius: 5px; background: #f9f9f9;">
+                                <div id="registered-users-list">Loading registered users...</div>
+                            </div>
+                        </div>
+
+                        <div id="no-users-message" style="display: none; padding: 15px; background: #fff3cd; border-radius: 5px; margin-top: 10px;">
+                            <strong>No participants selected.</strong> You must select at least one registered user to create a vote.
+                        </div>
                     </div>
 
                     <button type="submit">Create Vote</button>
@@ -277,16 +315,14 @@
             const maxNominations = document.getElementById('max-nominations').value;
             const nominationDeadline = document.getElementById('nomination-deadline').value;
             const rankingDeadline = document.getElementById('ranking-deadline').value;
-            const participantsText = document.getElementById('participants').value;
 
-            const participants = participantsText.split('\n')
-                .map(email => email.trim())
-                .filter(email => email && email.includes('@'));
-
-            if (participants.length === 0) {
-                showMessage('Please enter at least one valid email address', 'error');
+            if (selectedUsers.length === 0) {
+                showMessage('Please select at least one registered user to participate in this vote', 'error');
+                document.getElementById('no-users-message').style.display = 'block';
                 return;
             }
+
+            document.getElementById('no-users-message').style.display = 'none';
 
             try {
                 const response = await fetch('admin_api.php', {
@@ -300,7 +336,7 @@
                         max_nominations: parseInt(maxNominations),
                         nomination_deadline: nominationDeadline || null,
                         ranking_deadline: rankingDeadline || null,
-                        participants
+                        participant_user_ids: selectedUsers
                     })
                 });
 
@@ -309,38 +345,34 @@
                 if (result.success) {
                     showMessage('Vote created successfully!', 'success');
 
-                    // Display generated passwords in a persistent container
-                    let passwordsHtml = `
-                        <div id="passwords-container" class="password-container">
+                    // Display success info
+                    let successHtml = `
+                        <div id="success-container" class="password-container">
                             <h3>
-                                Generated Passwords
-                                <button onclick="closePasswords()" class="close-passwords">Close</button>
+                                Vote Created Successfully!
+                                <button onclick="closeSuccess()" class="close-passwords">Close</button>
                             </h3>
-                            <p><strong>IMPORTANT:</strong> Save these passwords! They won't be shown again.</p>
-                    `;
-
-                    result.data.passwords.forEach(p => {
-                        passwordsHtml += `
-                            <div class="password-display">
-                                ${p.email}: <strong>${p.password}</strong>
-                                <button onclick="copyPassword('${p.password}')" class="copy-btn">Copy</button>
-                            </div>
-                        `;
-                    });
-
-                    passwordsHtml += `
-                            <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 5px; border: 1px solid #ffeaa7;">
-                                <strong>Quick Test:</strong> You can now go to <a href="index.html" target="_blank">index.html</a> and use any of these passwords to test the voting system.
+                            <p><strong>Vote:</strong> ${title}</p>
+                            <p><strong>Participants:</strong> ${result.data.participant_count} registered users</p>
+                            <div style="margin-top: 15px; padding: 10px; background: #e8f8f5; border-radius: 5px;">
+                                <strong>Next Steps:</strong>
+                                <ul style="margin: 10px 0 0 20px;">
+                                    <li>Participants will see this vote on their dashboard</li>
+                                    <li>They can access it directly at: <code>vote.php?id=${result.data.vote_id}</code></li>
+                                    <li>The vote will automatically advance through phases as users complete their actions</li>
+                                </ul>
                             </div>
                         </div>
                     `;
 
                     // Insert after the create vote form
                     const form = document.getElementById('create-vote-form').closest('.card');
-                    form.insertAdjacentHTML('afterend', passwordsHtml);
+                    form.insertAdjacentHTML('afterend', successHtml);
 
                     // Reset form
                     document.getElementById('create-vote-form').reset();
+                    selectedUsers = [];
+                    document.getElementById('user-selection').style.display = 'none';
                     loadVotes();
                 } else {
                     showMessage(result.error || 'Failed to create vote', 'error');
@@ -385,6 +417,8 @@
                         <td>${vote.total_users}</td>
                         <td>${vote.total_nominations}</td>
                         <td>
+                            <a href="vote.php?id=${vote.id}" class="btn btn-primary">Participate</a>
+                            <button onclick="copyVoteLink(${vote.id})" class="btn-secondary">Copy Link</button>
                             <button onclick="advancePhase(${vote.id})" class="btn-success">Advance Phase</button>
                             <button onclick="viewPasswords(${vote.id})" class="btn-secondary">View Users</button>
                             <button onclick="deleteVote(${vote.id})" class="btn-danger">Delete</button>
@@ -466,6 +500,13 @@
             }
         }
 
+        function closeSuccess() {
+            const container = document.getElementById('success-container');
+            if (container) {
+                container.remove();
+            }
+        }
+
         function copyPassword(password) {
             navigator.clipboard.writeText(password).then(() => {
                 showMessage('Password copied to clipboard!', 'success');
@@ -524,9 +565,119 @@
             }
         }
 
+        let selectedUsers = [];
+        let registeredUsers = [];
+
+        async function checkAuth() {
+            try {
+                const response = await fetch('auth_api.php?action=check_session');
+                const result = await response.json();
+
+                if (!result.success || !result.data.logged_in || result.data.user.role !== 'admin') {
+                    window.location.href = 'auth.php';
+                    return;
+                }
+
+                document.getElementById('admin-welcome').textContent = `Welcome, ${result.data.user.display_name}`;
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                window.location.href = 'auth.php';
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('auth_api.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'logout' })
+                });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+            window.location.href = 'auth.php';
+        }
+
+        async function loadRegisteredUsers() {
+            try {
+                console.log('Loading registered users...');
+                const response = await fetch('admin_api.php?action=get_users');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const responseText = await response.text();
+                console.log('Raw response:', responseText);
+
+                let result;
+                try {
+                    result = JSON.parse(responseText);
+                } catch (parseError) {
+                    console.error('JSON Parse Error:', parseError);
+                    document.getElementById('registered-users-list').innerHTML =
+                        '<p style="color: #e74c3c; text-align: center;">Error: Invalid response from server</p>';
+                    return;
+                }
+
+                console.log('Parsed result:', result);
+
+                if (result.success) {
+                    registeredUsers = result.data;
+                    if (registeredUsers.length === 0) {
+                        document.getElementById('registered-users-list').innerHTML =
+                            '<p style="color: #e74c3c; text-align: center;">No registered users found. Users must register before they can participate in votes.</p>';
+                    } else {
+                        displayRegisteredUsers();
+                    }
+                } else {
+                    console.error('API Error:', result.error);
+                    document.getElementById('registered-users-list').innerHTML =
+                        `<p style="color: #e74c3c; text-align: center;">Error: ${result.error}</p>`;
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+                document.getElementById('registered-users-list').innerHTML =
+                    `<p style="color: #e74c3c; text-align: center;">Network error: ${error.message}</p>`;
+            }
+        }
+
+        function displayRegisteredUsers() {
+            const container = document.getElementById('registered-users-list');
+            let html = '';
+
+            registeredUsers.forEach(user => {
+                const isSelected = selectedUsers.includes(user.id);
+                html += `
+                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                        <input type="checkbox" id="user-${user.id}" ${isSelected ? 'checked' : ''}
+                               onchange="toggleUserSelection(${user.id})">
+                        <label for="user-${user.id}" style="margin-left: 8px; flex: 1;">
+                            ${user.display_name} (${user.username}) - ${user.email}
+                        </label>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function toggleUserSelection(userId) {
+            const index = selectedUsers.indexOf(userId);
+            if (index === -1) {
+                selectedUsers.push(userId);
+            } else {
+                selectedUsers.splice(index, 1);
+            }
+        }
+
+        // Removed toggleManualEntry - only using registered users now
+
         // Initialize
+        checkAuth();
         document.getElementById('create-vote-form').addEventListener('submit', createVote);
         loadVotes();
+        loadRegisteredUsers(); // Auto-load users when page loads
 
         // Set default dates to tomorrow
         const tomorrow = new Date();
@@ -538,118 +689,21 @@
         dayAfter.setDate(dayAfter.getDate() + 2);
         dayAfter.setHours(23, 59);
         document.getElementById('ranking-deadline').value = dayAfter.toISOString().slice(0, 16);
+
+        function copyVoteLink(voteId) {
+            const voteUrl = `${window.location.origin}/vote.php?id=${voteId}`;
+
+            // Create a temporary textarea to copy to clipboard
+            const textarea = document.createElement('textarea');
+            textarea.value = voteUrl;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            // Show confirmation
+            alert(`Vote link copied to clipboard:\n${voteUrl}`);
+        }
     </script>
 </body>
 </html>
-
-<?php
-// Authored or modified by Claude - 2025-09-25
-// Admin API endpoints - this would typically be in a separate admin_api.php file
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'GET') {
-    require_once 'config.php';
-
-    header('Content-Type: application/json');
-
-    function jsonResponse($success, $data = null, $error = null) {
-        echo json_encode([
-            'success' => $success,
-            'data' => $data,
-            'error' => $error
-        ]);
-        exit;
-    }
-
-    function getDb() {
-        try {
-            $pdo = new PDO('sqlite:' . DB_PATH);
-            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            return $pdo;
-        } catch (PDOException $e) {
-            jsonResponse(false, null, 'Database connection failed');
-        }
-    }
-
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $input = json_decode(file_get_contents('php://input'), true);
-        $action = $input['action'] ?? '';
-
-        switch ($action) {
-            case 'create_vote':
-                $pdo = getDb();
-
-                // Insert vote
-                $stmt = $pdo->prepare('INSERT INTO votes (title, max_nominations_per_user, nomination_deadline, ranking_deadline) VALUES (?, ?, ?, ?)');
-                $stmt->execute([
-                    $input['title'],
-                    $input['max_nominations'],
-                    $input['nomination_deadline'],
-                    $input['ranking_deadline']
-                ]);
-
-                $voteId = $pdo->lastInsertId();
-
-                // Create users with random passwords
-                $passwords = [];
-                foreach ($input['participants'] as $email) {
-                    $password = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
-                    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-
-                    $stmt = $pdo->prepare('INSERT INTO users (vote_id, password_hash, email) VALUES (?, ?, ?)');
-                    $stmt->execute([$voteId, $passwordHash, $email]);
-
-                    $passwords[] = ['email' => $email, 'password' => $password];
-                }
-
-                jsonResponse(true, ['vote_id' => $voteId, 'passwords' => $passwords]);
-                break;
-
-            case 'advance_phase':
-                $pdo = getDb();
-                $stmt = $pdo->prepare('SELECT phase FROM votes WHERE id = ?');
-                $stmt->execute([$input['vote_id']]);
-                $currentPhase = $stmt->fetchColumn();
-
-                $nextPhase = match($currentPhase) {
-                    'nominating' => 'ranking',
-                    'ranking' => 'finished',
-                    default => null
-                };
-
-                if ($nextPhase) {
-                    $stmt = $pdo->prepare('UPDATE votes SET phase = ? WHERE id = ?');
-                    $stmt->execute([$nextPhase, $input['vote_id']]);
-                    jsonResponse(true, 'Phase advanced');
-                } else {
-                    jsonResponse(false, null, 'Cannot advance phase');
-                }
-                break;
-
-            case 'delete_vote':
-                $pdo = getDb();
-                $stmt = $pdo->prepare('DELETE FROM votes WHERE id = ?');
-                $stmt->execute([$input['vote_id']]);
-                jsonResponse(true, 'Vote deleted');
-                break;
-        }
-    } else {
-        $action = $_GET['action'] ?? '';
-
-        if ($action === 'list_votes') {
-            $pdo = getDb();
-            $stmt = $pdo->query('
-                SELECT v.*,
-                       COUNT(DISTINCT u.id) as total_users,
-                       COUNT(DISTINCT n.id) as total_nominations
-                FROM votes v
-                LEFT JOIN users u ON v.id = u.vote_id
-                LEFT JOIN nominations n ON v.id = n.vote_id
-                GROUP BY v.id
-                ORDER BY v.created_at DESC
-            ');
-            $votes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            jsonResponse(true, $votes);
-        }
-    }
-}
-?>
