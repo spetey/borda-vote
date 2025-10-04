@@ -14,10 +14,13 @@ class EmailUtils {
             return true; // Simulate success in debug mode
         }
 
-        // In production, implement actual email sending
-        // This could use PHPMailer, Swift Mailer, or native PHP mail()
-        // For now, return false to indicate email not implemented
-        return false;
+        // Production email using built-in mail() function
+        $headers = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: noreply@stevepetersen.net\r\n";
+        $headers .= "Reply-To: noreply@stevepetersen.net\r\n";
+
+        return mail($to, $subject, $htmlBody, $headers);
     }
 
     public static function notifyVotePhaseAdvanced($voteId, $newPhase) {
@@ -153,7 +156,7 @@ class EmailUtils {
     private static function generatePhaseAdvancedEmail($voteTitle, $newPhase, $voteId) {
         $phaseText = self::getPhaseDisplayText($newPhase);
         $actionText = '';
-        $voteUrl = 'http://localhost:8000/vote.php?id=' . $voteId; // Update with your domain
+        $voteUrl = 'https://stevepetersen.net/borda/vote.php?id=' . $voteId;
 
         switch($newPhase) {
             case 'ranking':
@@ -198,7 +201,7 @@ class EmailUtils {
     }
 
     private static function generateResultsEmail($voteTitle, $voteId, $results) {
-        $voteUrl = 'http://localhost:8000/vote.php?id=' . $voteId; // Update with your domain
+        $voteUrl = 'https://stevepetersen.net/borda/vote.php?id=' . $voteId;
 
         $resultsHtml = '';
         foreach ($results as $index => $result) {
@@ -281,7 +284,7 @@ class EmailUtils {
 
                         <h4>🔗 How to Participate:</h4>
                         <ol>
-                            <li>Go to your dashboard at: <a href='" . ($_SERVER['HTTP_HOST'] ?? 'localhost') . "/dashboard.php'>Borda Vote Dashboard</a></li>
+                            <li>Go to your dashboard at: <a href='https://stevepetersen.net/borda/dashboard.php'>Borda Vote Dashboard</a></li>
                             <li>Look for '$voteTitle' in your available votes</li>
                             <li>Click to participate and submit your nominations</li>
                         </ol>
@@ -333,7 +336,7 @@ class EmailUtils {
                 </div>
 
                 <p style='text-align: center; margin: 30px 0;'>
-                    <a href='http://" . ($_SERVER['HTTP_HOST'] ?? 'localhost:8000') . "/auth.php' style='background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;'>
+                    <a href='https://stevepetersen.net/borda/auth.php' style='background: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;'>
                         Login Now
                     </a>
                 </p>
@@ -354,7 +357,7 @@ class EmailUtils {
         </body>
         </html>";
 
-        $textBody = "Welcome to Borda Vote!\n\nYour login details:\nUsername: $username\nEmail: $email\nTemporary Password: $temporaryPassword\n\nYou must change this password on first login.\n\nLogin at: http://" . ($_SERVER['HTTP_HOST'] ?? 'localhost:8000') . "/auth.php";
+        $textBody = "Welcome to Borda Vote!\n\nYour login details:\nUsername: $username\nEmail: $email\nTemporary Password: $temporaryPassword\n\nYou must change this password on first login.\n\nLogin at: https://stevepetersen.net/borda/auth.php";
 
         return self::sendEmail($email, $subject, $htmlBody, $textBody);
     }

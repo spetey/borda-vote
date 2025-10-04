@@ -99,10 +99,124 @@ define('DB_PATH', '/path/to/your/borda_vote.db');
 ```
 
 ### Email Notifications
-Edit `email_utils.php` to configure SMTP settings for production email sending.
+
+The system sends automatic email notifications for:
+- New user account creation (with temporary passwords)
+- Vote creation announcements
+- Vote phase changes (nomination → ranking → results)
+- Final results notifications
+
+#### Option 1: Basic Email (Shared Hosting)
+For most shared hosting providers (like Nearly Free Speech), use PHP's built-in `mail()` function.
+
+Edit the `sendEmail()` function in `email_utils.php`:
+
+```php
+public static function sendEmail($to, $subject, $htmlBody, $textBody = null) {
+    // For development/testing - log emails instead of sending
+    if (DEBUG) {
+        error_log("EMAIL: To: $to, Subject: $subject");
+        error_log("EMAIL BODY: " . strip_tags($htmlBody));
+        return true;
+    }
+
+    // Production email using built-in mail()
+    $headers = "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $headers .= "From: noreply@yourdomain.com\r\n";
+    $headers .= "Reply-To: noreply@yourdomain.com\r\n";
+
+    return mail($to, $subject, $htmlBody, $headers);
+}
+```
+
+**Important**: Replace `yourdomain.com` with your actual domain name.
+
+#### Option 2: SMTP Email (VPS/Dedicated Servers)
+For more reliable email delivery, use SMTP with PHPMailer:
+
+1. **Install PHPMailer**:
+   ```bash
+   composer require phpmailer/phpmailer
+   ```
+
+2. **Update `sendEmail()` in `email_utils.php`**:
+   ```php
+   use PHPMailer\PHPMailer\PHPMailer;
+   use PHPMailer\PHPMailer\SMTP;
+
+   public static function sendEmail($to, $subject, $htmlBody, $textBody = null) {
+       if (DEBUG) {
+           error_log("EMAIL: To: $to, Subject: $subject");
+           return true;
+       }
+
+       $mail = new PHPMailer(true);
+       try {
+           // SMTP configuration
+           $mail->isSMTP();
+           $mail->Host = 'smtp.gmail.com'; // or your SMTP server
+           $mail->SMTPAuth = true;
+           $mail->Username = 'your-email@gmail.com';
+           $mail->Password = 'your-app-password';
+           $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+           $mail->Port = 587;
+
+           // Email content
+           $mail->setFrom('noreply@yourdomain.com', 'Borda Vote System');
+           $mail->addAddress($to);
+           $mail->isHTML(true);
+           $mail->Subject = $subject;
+           $mail->Body = $htmlBody;
+           $mail->AltBody = $textBody ?: strip_tags($htmlBody);
+
+           $mail->send();
+           return true;
+       } catch (Exception $e) {
+           error_log("Email error: " . $mail->ErrorInfo);
+           return false;
+       }
+   }
+   ```
+
+#### Update Domain URLs
+Update hardcoded URLs in `email_utils.php` to match your domain:
+- Line ~156: Change `http://localhost:8000/vote.php` to `https://yourdomain.com/path/vote.php`
+- Line ~201: Same for results emails
+- Line ~336: Change `http://localhost:8000/auth.php` to `https://yourdomain.com/path/auth.php`
+
+#### Testing Email Setup
+
+**Local Testing:**
+1. Keep `DEBUG = true` in `config.php`
+2. Create a test user or vote
+3. Check your error logs for email output
+
+**Production Testing:**
+1. Set `DEBUG = false` in `config.php`
+2. Create a test user with your email address
+3. Verify you receive the welcome email
+4. Test vote notifications by creating a test vote
+
+#### Troubleshooting
+
+**Emails not sending:**
+- Verify `DEBUG = false` in production
+- Check error logs for specific errors
+- Ensure your domain's From address matches your hosting
+- For SMTP: verify credentials and server settings
+
+**Emails going to spam:**
+- Use a From address matching your domain
+- Add SPF/DKIM records to your domain's DNS
+- Avoid spam trigger words in email content
+
+**Permission errors:**
+- Ensure your web server can execute the `mail()` function
+- Check hosting provider's email sending policies
 
 ### Debugging
-Set `DEBUG = true` in `config.php` to log emails instead of sending them.
+Set `DEBUG = true` in `config.php` to log emails instead of sending them. This is useful for local development and testing email templates without actually sending emails.
 
 ## 🏗️ Architecture
 
