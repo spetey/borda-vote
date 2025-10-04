@@ -212,6 +212,87 @@ if (!$user || $user['role'] !== 'admin') {
                 grid-template-columns: 1fr;
             }
         }
+
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background: #d68910;
+        }
+
+        .btn-info {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-info:hover {
+            background: #2980b9;
+        }
+
+        /* Navigation Styles */
+        .nav-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .nav-btn {
+            background: #ecf0f1;
+            color: #2c3e50;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-btn:hover {
+            background: #bdc3c7;
+            transform: translateY(-2px);
+        }
+
+        .nav-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .nav-btn.active:hover {
+            background: #2980b9;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .nav-buttons {
+                flex-direction: column;
+            }
+
+            .nav-btn {
+                justify-content: center;
+            }
+        }
     </style>
 </head>
 <body>
@@ -227,9 +308,80 @@ if (!$user || $user['role'] !== 'admin') {
             </div>
         </div>
 
-        <div class="card">
+        <!-- Navigation -->
+        <div class="nav-container">
+            <div class="nav-buttons">
+                <button class="nav-btn active" onclick="showSection('add-user')">
+                    👥 Add User
+                </button>
+                <button class="nav-btn" onclick="showSection('manage-users')">
+                    ⚙️ Manage Users
+                </button>
+                <button class="nav-btn" onclick="showSection('add-vote')">
+                    🗳️ Add Vote
+                </button>
+                <button class="nav-btn" onclick="showSection('manage-votes')">
+                    📊 Manage Votes
+                </button>
+                <button class="nav-btn" onclick="showSection('email-testing')">
+                    📧 Email Testing
+                </button>
+            </div>
+        </div>
 
-            <!-- Create New Vote Form -->
+        <!-- Add User Section -->
+        <div id="add-user" class="section active">
+            <div class="card">
+                <h2>Create New User</h2>
+                <form id="create-user-form">
+                    <div class="grid">
+                        <div class="form-group">
+                            <label for="user-username">Username:</label>
+                            <input type="text" id="user-username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="user-email">Email:</label>
+                            <input type="email" id="user-email" required>
+                        </div>
+                    </div>
+
+                    <div class="grid">
+                        <div class="form-group">
+                            <label for="user-display-name">Display Name:</label>
+                            <input type="text" id="user-display-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="user-role">Role:</label>
+                            <select id="user-role">
+                                <option value="user">Regular User</option>
+                                <option value="admin">Administrator</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="user-temp-password">Temporary Password:</label>
+                        <input type="text" id="user-temp-password" required>
+                        <button type="button" onclick="generatePassword()" class="btn-secondary" style="margin-left: 10px;">Generate</button>
+                    </div>
+
+                    <button type="submit">Create User</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Manage Users Section -->
+        <div id="manage-users" class="section">
+            <div class="card">
+                <h2>Manage Users</h2>
+                <div id="users-list">
+                    <!-- Users will be loaded here by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Vote Section -->
+        <div id="add-vote" class="section">
             <div class="card">
                 <h2>Create New Vote</h2>
                 <form id="create-vote-form">
@@ -276,13 +428,53 @@ if (!$user || $user['role'] !== 'admin') {
                     <button type="submit">Create Vote</button>
                 </form>
             </div>
+        </div>
 
-            <!-- Existing Votes -->
+        <!-- Manage Votes Section -->
+        <div id="manage-votes" class="section">
             <div class="card">
-                <h2>Existing Votes</h2>
+                <h2>Manage Votes</h2>
+                <div style="margin-bottom: 15px;">
+                    <label>
+                        <input type="checkbox" id="include-archived" onchange="loadVotes()">
+                        Show archived votes
+                    </label>
+                </div>
                 <div id="votes-list">
                     <p>Loading votes...</p>
                 </div>
+            </div>
+        </div>
+
+        <!-- Email Testing Section -->
+        <div id="email-testing" class="section">
+            <div class="card">
+                <h2>📧 Email Testing</h2>
+                <p style="color: #6c757d; margin-bottom: 15px;">Test email notifications in debug mode (emails will be logged, not sent)</p>
+
+                <div class="form-group">
+                    <label for="test-vote-select">Select Vote for Testing:</label>
+                    <select id="test-vote-select">
+                        <option value="">Select a vote...</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="testEmail('phase_advance', 'ranking')" class="btn-secondary">
+                        Test Phase Advance Email (Ranking)
+                    </button>
+                    <button onclick="testEmail('phase_advance', 'finished')" class="btn-secondary">
+                        Test Phase Advance Email (Finished)
+                    </button>
+                    <button onclick="testEmail('results')" class="btn-secondary">
+                        Test Results Email
+                    </button>
+                    <button onclick="checkDeadlineAdvance()" class="btn-info">
+                        Check Deadline Advances
+                    </button>
+                </div>
+
+                <div id="email-test-result" style="margin-top: 15px;"></div>
             </div>
         </div>
 
@@ -299,6 +491,24 @@ if (!$user || $user['role'] !== 'admin') {
             setTimeout(() => messageDiv.innerHTML = '', 5000);
         }
 
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Remove active class from all nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show the selected section
+            document.getElementById(sectionId).classList.add('active');
+
+            // Add active class to the clicked button
+            event.target.classList.add('active');
+        }
+
         function generatePassword() {
             const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
             let result = '';
@@ -306,6 +516,64 @@ if (!$user || $user['role'] !== 'admin') {
                 result += chars.charAt(Math.floor(Math.random() * chars.length));
             }
             return result;
+        }
+
+        function generatePassword() {
+            const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+            let password = '';
+            for (let i = 0; i < 8; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('user-temp-password').value = password;
+        }
+
+        async function createUser(event) {
+            event.preventDefault();
+
+            const username = document.getElementById('user-username').value;
+            const email = document.getElementById('user-email').value;
+            const displayName = document.getElementById('user-display-name').value;
+            const role = document.getElementById('user-role').value;
+            const tempPassword = document.getElementById('user-temp-password').value;
+
+            if (!tempPassword || tempPassword.length < 6) {
+                showMessage('Temporary password must be at least 6 characters', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('admin_api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'create_user',
+                        username: username,
+                        email: email,
+                        display_name: displayName,
+                        role: role,
+                        temp_password: tempPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage(`User created successfully! Share these credentials:\nUsername: ${username}\nPassword: ${tempPassword}`, 'success');
+
+                    // Clear form
+                    document.getElementById('create-user-form').reset();
+
+                    // Reload users list
+                    loadRegisteredUsers();
+                } else {
+                    showMessage(result.error || 'Failed to create user', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('Network error occurred', 'error');
+            }
         }
 
         async function createVote(event) {
@@ -385,7 +653,9 @@ if (!$user || $user['role'] !== 'admin') {
 
         async function loadVotes() {
             try {
-                const response = await fetch('admin_api.php?action=list_votes');
+                const includeArchived = document.getElementById('include-archived').checked;
+                const url = `admin_api.php?action=list_votes${includeArchived ? '&include_archived=true' : ''}`;
+                const response = await fetch(url);
                 const result = await response.json();
 
                 if (result.success) {
@@ -410,18 +680,32 @@ if (!$user || $user['role'] !== 'admin') {
             let html = '<table><thead><tr><th>Title</th><th>Phase</th><th>Participants</th><th>Nominations</th><th>Actions</th></tr></thead><tbody>';
 
             votes.forEach(vote => {
+                const rowClass = vote.archived ? 'style="opacity: 0.6; background-color: #f8f9fa;"' : '';
+                const archivedBadge = vote.archived ? ' <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">ARCHIVED</span>' : '';
+
                 html += `
-                    <tr>
-                        <td>${vote.title}</td>
+                    <tr ${rowClass}>
+                        <td>${vote.title}${archivedBadge}</td>
                         <td>${vote.phase}</td>
                         <td>${vote.total_users}</td>
                         <td>${vote.total_nominations}</td>
                         <td>
-                            <a href="vote.php?id=${vote.id}" class="btn btn-primary">Participate</a>
+                            ${!vote.archived ? `<a href="vote.php?id=${vote.id}" class="btn btn-primary">Participate</a>` : ''}
                             <button onclick="copyVoteLink(${vote.id})" class="btn-secondary">Copy Link</button>
-                            <button onclick="advancePhase(${vote.id})" class="btn-success">Advance Phase</button>
-                            <button onclick="viewPasswords(${vote.id})" class="btn-secondary">View Users</button>
-                            <button onclick="deleteVote(${vote.id})" class="btn-danger">Delete</button>
+                            ${!vote.archived && vote.phase === 'tie_resolution' ?
+                                `<div style="margin: 5px 0;">
+                                    <div style="font-weight: bold; color: #e67e22; margin-bottom: 5px;">⚖️ Resolve Tie:</div>
+                                    <button onclick="resolveTie(${vote.id}, 'automatic')" class="btn-success" style="font-size: 11px; padding: 3px 6px;">Auto</button>
+                                    <button onclick="resolveTie(${vote.id}, 'random')" class="btn-warning" style="font-size: 11px; padding: 3px 6px;">Random</button>
+                                    <button onclick="resolveTie(${vote.id}, 'runoff')" class="btn-info" style="font-size: 11px; padding: 3px 6px;">Runoff</button>
+                                </div>` :
+                                (!vote.archived ? `<button onclick="advancePhase(${vote.id})" class="btn-success">Advance Phase</button>` : '')
+                            }
+                            <button onclick="viewParticipants(${vote.id})" class="btn-secondary">View Participants</button>
+                            ${vote.archived ?
+                                `<button onclick="restoreVote(${vote.id})" class="btn-warning">Restore</button>` :
+                                `<button onclick="archiveVote(${vote.id})" class="btn-danger">Archive</button>`
+                            }
                         </td>
                     </tr>
                 `;
@@ -429,6 +713,9 @@ if (!$user || $user['role'] !== 'admin') {
 
             html += '</tbody></table>';
             container.innerHTML = html;
+
+            // Also populate the email test dropdown
+            populateVoteSelect(votes);
         }
 
         async function advancePhase(voteId) {
@@ -462,8 +749,8 @@ if (!$user || $user['role'] !== 'admin') {
             }
         }
 
-        async function deleteVote(voteId) {
-            if (!confirm('Are you sure you want to delete this vote? This cannot be undone.')) {
+        async function archiveVote(voteId) {
+            if (!confirm('Are you sure you want to archive this vote? It will be hidden but can be restored later.')) {
                 return;
             }
 
@@ -474,7 +761,7 @@ if (!$user || $user['role'] !== 'admin') {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        action: 'delete_vote',
+                        action: 'archive_vote',
                         vote_id: voteId
                     })
                 });
@@ -482,10 +769,41 @@ if (!$user || $user['role'] !== 'admin') {
                 const result = await response.json();
 
                 if (result.success) {
-                    showMessage('Vote deleted successfully!', 'success');
+                    showMessage('Vote archived successfully!', 'success');
                     loadVotes();
                 } else {
-                    showMessage(result.error || 'Failed to delete vote', 'error');
+                    showMessage(result.error || 'Failed to archive vote', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage('Network error occurred', 'error');
+            }
+        }
+
+        async function restoreVote(voteId) {
+            if (!confirm('Are you sure you want to restore this archived vote?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('admin_api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'restore_vote',
+                        vote_id: voteId
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('Vote restored successfully!', 'success');
+                    loadVotes();
+                } else {
+                    showMessage(result.error || 'Failed to restore vote', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -522,32 +840,49 @@ if (!$user || $user['role'] !== 'admin') {
             });
         }
 
-        async function viewPasswords(voteId) {
+        async function viewParticipants(voteId) {
             try {
-                const response = await fetch(`admin_api.php?action=get_passwords&vote_id=${voteId}`);
+                const response = await fetch(`admin_api.php?action=get_vote_participants&vote_id=${voteId}`);
                 const result = await response.json();
 
                 if (result.success) {
                     let html = `
-                        <div id="password-info-${voteId}" class="password-container">
+                        <div id="participants-info-${voteId}" class="password-container">
                             <h3>
-                                Users for: ${result.data.vote_title}
-                                <button onclick="document.getElementById('password-info-${voteId}').remove()" class="close-passwords">Close</button>
+                                Participants for: ${result.data.vote_title}
+                                <button onclick="document.getElementById('participants-info-${voteId}').remove()" class="close-passwords">Close</button>
                             </h3>
-                            <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
-                                <strong>Note:</strong> ${result.data.message}
-                            </div>
+                            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                                <thead>
+                                    <tr style="background: #f8f9fa;">
+                                        <th style="padding: 8px; border: 1px solid #ddd;">Name</th>
+                                        <th style="padding: 8px; border: 1px solid #ddd;">Email</th>
+                                        <th style="padding: 8px; border: 1px solid #ddd;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
                     `;
 
-                    result.data.users.forEach(user => {
-                        html += `<div class="password-display">${user.email} (Hash: ${user.password_hash})</div>`;
+                    result.data.participants.forEach(user => {
+                        let status = [];
+                        if (user.has_nominated) status.push('✅ Nominated');
+                        if (user.has_ranked) status.push('✅ Ranked');
+                        if (user.has_runoff_ranked) status.push('✅ Runoff Ranked');
+
+                        const statusText = status.length > 0 ? status.join(', ') : '⏳ Pending';
+
+                        html += `
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${user.display_name}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${user.email}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${statusText}</td>
+                            </tr>
+                        `;
                     });
 
                     html += `
-                            <div style="margin-top: 15px; padding: 10px; background: #e8f8f5; border-radius: 5px;">
-                                <strong>Testing:</strong> If you just created this vote, the passwords were shown above.
-                                Otherwise, you'll need to create a new vote to get fresh passwords.
-                            </div>
+                                </tbody>
+                            </table>
                         </div>
                     `;
 
@@ -629,6 +964,7 @@ if (!$user || $user['role'] !== 'admin') {
                             '<p style="color: #e74c3c; text-align: center;">No registered users found. Users must register before they can participate in votes.</p>';
                     } else {
                         displayRegisteredUsers();
+                        displayUsersManagement();
                     }
                 } else {
                     console.error('API Error:', result.error);
@@ -662,6 +998,42 @@ if (!$user || $user['role'] !== 'admin') {
             container.innerHTML = html;
         }
 
+        function displayUsersManagement() {
+            const container = document.getElementById('users-list');
+            if (!registeredUsers || registeredUsers.length === 0) {
+                container.innerHTML = '<p style="color: #6c757d; text-align: center;">No users found.</p>';
+                return;
+            }
+
+            let html = '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse;">';
+            html += '<thead><tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">';
+            html += '<th style="padding: 12px; text-align: left;">Display Name</th>';
+            html += '<th style="padding: 12px; text-align: left;">Username</th>';
+            html += '<th style="padding: 12px; text-align: left;">Email</th>';
+            html += '<th style="padding: 12px; text-align: left;">Role</th>';
+            html += '<th style="padding: 12px; text-align: left;">Status</th>';
+            html += '<th style="padding: 12px; text-align: left;">Last Login</th>';
+            html += '</tr></thead><tbody>';
+
+            registeredUsers.forEach(user => {
+                const statusText = user.active ? 'Active' : 'Inactive';
+                const statusColor = user.active ? '#28a745' : '#dc3545';
+                const lastLogin = user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never';
+
+                html += `<tr style="border-bottom: 1px solid #dee2e6;">
+                    <td style="padding: 12px;">${user.display_name}</td>
+                    <td style="padding: 12px;">${user.username}</td>
+                    <td style="padding: 12px;">${user.email}</td>
+                    <td style="padding: 12px;"><span style="background: ${user.role === 'admin' ? '#007bff' : '#6c757d'}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${user.role}</span></td>
+                    <td style="padding: 12px;"><span style="color: ${statusColor}; font-weight: 500;">${statusText}</span></td>
+                    <td style="padding: 12px;">${lastLogin}</td>
+                </tr>`;
+            });
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
         function toggleUserSelection(userId) {
             const index = selectedUsers.indexOf(userId);
             if (index === -1) {
@@ -675,6 +1047,7 @@ if (!$user || $user['role'] !== 'admin') {
 
         // Initialize
         checkAuth();
+        document.getElementById('create-user-form').addEventListener('submit', createUser);
         document.getElementById('create-vote-form').addEventListener('submit', createVote);
         loadVotes();
         loadRegisteredUsers(); // Auto-load users when page loads
@@ -690,6 +1063,11 @@ if (!$user || $user['role'] !== 'admin') {
         dayAfter.setHours(23, 59);
         document.getElementById('ranking-deadline').value = dayAfter.toISOString().slice(0, 16);
 
+        // Periodically check for deadline advances (every 5 minutes)
+        setInterval(() => {
+            checkDeadlineAdvance();
+        }, 5 * 60 * 1000);
+
         function copyVoteLink(voteId) {
             const voteUrl = `${window.location.origin}/vote.php?id=${voteId}`;
 
@@ -703,6 +1081,130 @@ if (!$user || $user['role'] !== 'admin') {
 
             // Show confirmation
             alert(`Vote link copied to clipboard:\n${voteUrl}`);
+        }
+
+        async function testEmail(emailType, phase = null) {
+            const voteId = document.getElementById('test-vote-select').value;
+            if (!voteId) {
+                document.getElementById('email-test-result').innerHTML =
+                    '<div style="color: #e74c3c;">Please select a vote first</div>';
+                return;
+            }
+
+            try {
+                const payload = {
+                    action: 'test_email',
+                    vote_id: voteId,
+                    email_type: emailType
+                };
+
+                if (phase) {
+                    payload.phase = phase;
+                }
+
+                const response = await fetch('admin_api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('email-test-result').innerHTML =
+                        `<div style="color: #27ae60;">✅ ${result.data.message}</div>`;
+                } else {
+                    document.getElementById('email-test-result').innerHTML =
+                        `<div style="color: #e74c3c;">❌ ${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('email-test-result').innerHTML =
+                    `<div style="color: #e74c3c;">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        async function checkDeadlineAdvance() {
+            try {
+                const response = await fetch('admin_api.php?action=check_deadline_advance');
+                const result = await response.json();
+
+                if (result.success) {
+                    const data = result.data;
+                    let message = `<div style="color: #27ae60;">✅ ${data.message}</div>`;
+
+                    if (data.advanced_votes && data.advanced_votes.length > 0) {
+                        message += '<div style="margin-top: 10px;"><strong>Advanced Votes:</strong><ul>';
+                        data.advanced_votes.forEach(vote => {
+                            message += `<li>${vote.title}: ${vote.from} → ${vote.to} (${vote.reason})</li>`;
+                        });
+                        message += '</ul></div>';
+                    }
+
+                    document.getElementById('email-test-result').innerHTML = message;
+
+                    // Refresh the vote list if any votes were advanced
+                    if (data.advanced_count > 0) {
+                        loadVotes();
+                    }
+                } else {
+                    document.getElementById('email-test-result').innerHTML =
+                        `<div style="color: #e74c3c;">❌ ${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('email-test-result').innerHTML =
+                    `<div style="color: #e74c3c;">❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        function populateVoteSelect(votes) {
+            const select = document.getElementById('test-vote-select');
+            select.innerHTML = '<option value="">Select a vote...</option>';
+
+            votes.forEach(vote => {
+                const option = document.createElement('option');
+                option.value = vote.id;
+                option.textContent = `${vote.title} (${vote.phase})`;
+                select.appendChild(option);
+            });
+        }
+
+        async function resolveTie(voteId, method) {
+            const methodNames = {
+                'automatic': 'automatic tiebreaking (first-place votes, etc.)',
+                'random': 'random selection',
+                'runoff': 'runoff vote'
+            };
+
+            if (!confirm(`Resolve tie using ${methodNames[method]}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'resolve_tie',
+                        vote_id: voteId,
+                        method: method
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('✅ ' + result.data);
+                    loadVotes(); // Refresh the votes list
+                } else {
+                    alert('❌ ' + result.error);
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
         }
     </script>
 </body>

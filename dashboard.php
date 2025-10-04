@@ -209,6 +209,9 @@
                 <div class="user-info">
                     Welcome, <span id="user-display-name">...</span>
                 </div>
+                <div id="admin-panel-link" style="display: none;">
+                    <a href="admin.php" class="btn btn-secondary">Admin Panel</a>
+                </div>
                 <a href="#" onclick="showProfile()" class="btn btn-secondary">Profile</a>
                 <a href="#" onclick="logout()" class="btn btn-secondary">Logout</a>
             </div>
@@ -245,13 +248,6 @@
             </div>
         </div>
 
-        <!-- Recent Activity -->
-        <div class="card">
-            <h2>Available Votes</h2>
-            <div id="available-votes">
-                <div class="empty-state">Loading available votes...</div>
-            </div>
-        </div>
     </div>
 
     <script>
@@ -268,9 +264,19 @@
                     currentUser = result.data.user;
                     document.getElementById('user-display-name').textContent = currentUser.display_name;
 
+                    // Show admin panel link only for admin users
+                    if (currentUser.role === 'admin') {
+                        document.getElementById('admin-panel-link').style.display = 'inline-block';
+                    }
+
+                    // Check if user must change password
+                    if (currentUser.must_change_password) {
+                        showForcedPasswordChange();
+                        return; // Don't load dashboard content until password is changed
+                    }
+
                     displayUserVotes(result.data.user_votes);
                     displayUserStats(result.data.stats);
-                    displayAvailableVotes(result.data.available_votes);
                 } else {
                     console.error('Failed to load user data:', result.error);
                     // Redirect to login if session expired
@@ -327,35 +333,168 @@
             document.getElementById('stat-completed').textContent = stats.completed_votes || 0;
         }
 
-        function displayAvailableVotes(votes) {
-            const container = document.getElementById('available-votes');
 
-            if (!votes || votes.length === 0) {
-                container.innerHTML = '<div class="empty-state">No votes available at this time.</div>';
+        function showForcedPasswordChange() {
+            const forcedChangeHtml = `
+                <div id="forced-password-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+                    <div style="background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 400px;">
+                        <h3 style="color: #e74c3c; margin-bottom: 15px;">🔐 Password Change Required</h3>
+                        <p style="margin-bottom: 20px;">You must change your temporary password before you can access the system.</p>
+
+                        <form id="forced-change-password-form">
+                            <div style="margin-bottom: 15px;">
+                                <label for="forced-current-password">Current Password:</label>
+                                <input type="password" id="forced-current-password" required style="width: 100%; padding: 8px; margin-top: 5px;">
+                            </div>
+                            <div style="margin-bottom: 15px;">
+                                <label for="forced-new-password">New Password:</label>
+                                <input type="password" id="forced-new-password" required style="width: 100%; padding: 8px; margin-top: 5px;">
+                            </div>
+                            <div style="margin-bottom: 20px;">
+                                <label for="forced-confirm-password">Confirm New Password:</label>
+                                <input type="password" id="forced-confirm-password" required style="width: 100%; padding: 8px; margin-top: 5px;">
+                            </div>
+                            <button type="submit" class="btn" style="width: 100%;">Change Password</button>
+                        </form>
+                        <div id="forced-password-message" style="margin-top: 15px;"></div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', forcedChangeHtml);
+            document.getElementById('forced-change-password-form').addEventListener('submit', forcedChangePassword);
+        }
+
+        async function forcedChangePassword(event) {
+            event.preventDefault();
+
+            const currentPassword = document.getElementById('forced-current-password').value;
+            const newPassword = document.getElementById('forced-new-password').value;
+            const confirmPassword = document.getElementById('forced-confirm-password').value;
+
+            if (newPassword !== confirmPassword) {
+                document.getElementById('forced-password-message').innerHTML = '<div style="color: #e74c3c;">New passwords do not match</div>';
                 return;
             }
 
-            let html = '';
-            votes.forEach(vote => {
-                const statusClass = `status-${vote.phase}`;
-                html += `
-                    <div class="vote-item">
-                        <div class="vote-title">${vote.title}</div>
-                        <div class="vote-meta">
-                            <span class="vote-status ${statusClass}">${vote.phase}</span>
-                            • ${vote.total_users} participants
-                        </div>
-                        <a href="vote.php?id=${vote.id}" class="btn">Participate</a>
-                    </div>
-                `;
-            });
+            if (newPassword.length < 6) {
+                document.getElementById('forced-password-message').innerHTML = '<div style="color: #e74c3c;">Password must be at least 6 characters</div>';
+                return;
+            }
 
-            container.innerHTML = html;
+            try {
+                const response = await fetch('auth_api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'change_password',
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('forced-password-message').innerHTML = '<div style="color: #27ae60;">Password changed successfully! Reloading...</div>';
+                    setTimeout(() => {
+                        window.location.reload(); // Reload to load dashboard content
+                    }, 1500);
+                } else {
+                    document.getElementById('forced-password-message').innerHTML = `<div style="color: #e74c3c;">${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('forced-password-message').innerHTML = '<div style="color: #e74c3c;">Network error occurred</div>';
+            }
         }
 
         function showProfile() {
-            // TODO: Implement profile modal or redirect to profile page
-            alert('Profile editing coming soon!');
+            const profileHtml = `
+                <div id="profile-modal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+                    <div style="background: white; padding: 30px; border-radius: 10px; width: 90%; max-width: 400px;">
+                        <h3>Change Password</h3>
+                        <form id="change-password-form">
+                            <div style="margin-bottom: 15px;">
+                                <label for="current-password">Current Password:</label>
+                                <input type="password" id="current-password" required style="width: 100%; padding: 8px; margin-top: 5px;">
+                            </div>
+                            <div style="margin-bottom: 15px;">
+                                <label for="new-password">New Password:</label>
+                                <input type="password" id="new-password" required style="width: 100%; padding: 8px; margin-top: 5px;">
+                            </div>
+                            <div style="margin-bottom: 20px;">
+                                <label for="confirm-password">Confirm New Password:</label>
+                                <input type="password" id="confirm-password" required style="width: 100%; padding: 8px; margin-top: 5px;">
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button type="submit" class="btn" style="flex: 1;">Change Password</button>
+                                <button type="button" onclick="closeProfile()" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+                            </div>
+                        </form>
+                        <div id="password-message" style="margin-top: 15px;"></div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', profileHtml);
+
+            document.getElementById('change-password-form').addEventListener('submit', changePassword);
+        }
+
+        function closeProfile() {
+            const modal = document.getElementById('profile-modal');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        async function changePassword(event) {
+            event.preventDefault();
+
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+
+            if (newPassword !== confirmPassword) {
+                document.getElementById('password-message').innerHTML = '<div style="color: #e74c3c;">New passwords do not match</div>';
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                document.getElementById('password-message').innerHTML = '<div style="color: #e74c3c;">Password must be at least 6 characters</div>';
+                return;
+            }
+
+            try {
+                const response = await fetch('auth_api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'change_password',
+                        current_password: currentPassword,
+                        new_password: newPassword,
+                        confirm_password: confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('password-message').innerHTML = '<div style="color: #27ae60;">Password changed successfully!</div>';
+                    setTimeout(() => {
+                        closeProfile();
+                    }, 2000);
+                } else {
+                    document.getElementById('password-message').innerHTML = `<div style="color: #e74c3c;">${result.error}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('password-message').innerHTML = '<div style="color: #e74c3c;">Network error occurred</div>';
+            }
         }
 
         async function logout() {

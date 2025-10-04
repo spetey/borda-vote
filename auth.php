@@ -178,49 +178,7 @@
             </form>
 
             <div class="auth-switch">
-                <p>Don't have an account? <a href="#" onclick="showRegister()">Register here</a></p>
-            </div>
-        </div>
-
-        <!-- Registration Form -->
-        <div id="register-form" class="hidden">
-            <h2 style="margin-bottom: 20px; text-align: center; color: #2c3e50;">Register</h2>
-
-            <form id="register" onsubmit="register(event)">
-                <div class="form-group">
-                    <label for="reg-username">Username</label>
-                    <input type="text" id="reg-username" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="reg-email">Email</label>
-                    <input type="email" id="reg-email" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="reg-display-name">Display Name</label>
-                    <input type="text" id="reg-display-name" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="reg-password">Password</label>
-                    <input type="password" id="reg-password" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="reg-password-confirm">Confirm Password</label>
-                    <input type="password" id="reg-password-confirm" required>
-                </div>
-
-                <button type="submit" class="btn">Register</button>
-            </form>
-
-            <div class="role-info">
-                <strong>Note:</strong> New accounts are created as regular users. Contact the administrator if you need admin privileges to create votes.
-            </div>
-
-            <div class="auth-switch">
-                <p>Already have an account? <a href="#" onclick="showLogin()">Login here</a></p>
+                <p>Need an account? Contact your administrator for access.</p>
             </div>
         </div>
 
@@ -237,15 +195,6 @@
             setTimeout(() => messageDiv.innerHTML = '', 5000);
         }
 
-        function showLogin() {
-            document.getElementById('login-form').classList.remove('hidden');
-            document.getElementById('register-form').classList.add('hidden');
-        }
-
-        function showRegister() {
-            document.getElementById('login-form').classList.add('hidden');
-            document.getElementById('register-form').classList.remove('hidden');
-        }
 
         async function login(event) {
             event.preventDefault();
@@ -288,58 +237,6 @@
             }
         }
 
-        async function register(event) {
-            event.preventDefault();
-
-            const username = document.getElementById('reg-username').value;
-            const email = document.getElementById('reg-email').value;
-            const displayName = document.getElementById('reg-display-name').value;
-            const password = document.getElementById('reg-password').value;
-            const confirmPassword = document.getElementById('reg-password-confirm').value;
-
-            // Validate passwords match
-            if (password !== confirmPassword) {
-                showMessage('Passwords do not match', 'error');
-                return;
-            }
-
-            // Basic password validation
-            if (password.length < 6) {
-                showMessage('Password must be at least 6 characters', 'error');
-                return;
-            }
-
-            try {
-                const response = await fetch('auth_api.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        action: 'register',
-                        username: username,
-                        email: email,
-                        display_name: displayName,
-                        password: password
-                    })
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    showMessage('Registration successful! Please login with your new account.', 'success');
-
-                    // Clear form and switch to login
-                    document.getElementById('register').reset();
-                    setTimeout(() => showLogin(), 2000);
-                } else {
-                    showMessage(result.error || 'Registration failed', 'error');
-                }
-            } catch (error) {
-                console.error('Registration error:', error);
-                showMessage('Network error occurred', 'error');
-            }
-        }
 
         // Check if user is already logged in
         window.addEventListener('load', async () => {

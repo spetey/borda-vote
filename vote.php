@@ -62,20 +62,74 @@
         }
         .nomination-item {
             background: white;
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 3px;
-            border-left: 4px solid #3498db;
-            cursor: move;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 2px solid #ddd;
             transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
         .nomination-item:hover {
             background: #f8f9fa;
-            transform: translateX(5px);
         }
-        .nomination-item.drag-over {
-            border-top: 3px solid #e74c3c;
-            transform: translateY(-2px);
+        .nomination-text {
+            flex: 1;
+            padding-left: 10px;
+        }
+        .ranking-controls {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-left: 10px;
+        }
+        .rank-input {
+            width: 50px;
+            padding: 4px;
+            border: 2px solid #ddd;
+            border-radius: 3px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .rank-input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        .rank-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 2px 6px;
+            cursor: pointer;
+            font-size: 12px;
+            min-width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .rank-btn:hover {
+            background: #2980b9;
+        }
+        .rank-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .rank-number {
+            background: #e74c3c;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            margin-right: 10px;
+            min-width: 30px;
         }
         .results-summary {
             background: #f8f9fa;
@@ -83,6 +137,35 @@
             border-radius: 5px;
             margin-bottom: 20px;
             text-align: center;
+        }
+        .runoff-notice {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 15px 0;
+            color: #0c5460;
+            font-size: 14px;
+        }
+
+        .random-notice {
+            background: #e2e3e5;
+            border: 1px solid #d1ecf1;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 15px 0;
+            color: #383d41;
+            font-size: 14px;
+        }
+
+        .tiebreaker-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 15px 0;
+            color: #856404;
+            font-size: 14px;
         }
         .results-list {
             margin-bottom: 20px;
@@ -138,6 +221,29 @@
         .btn-primary {
             background: #3498db;
         }
+        .tie-resolution-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .tie-summary {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            text-align: left;
+        }
+        .tie-group {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+        .tie-actions {
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -175,9 +281,33 @@
         <div id="ranking-section" style="display: none;">
             <div class="ranking-section">
                 <h3>Rank Your Preferences</h3>
-                <p>Drag and drop to rank the nominations from most preferred (top) to least preferred (bottom).</p>
+                <p>Rank nominations from most preferred (top) to least preferred (bottom). Use the ↑ and ↓ buttons to move items, or type a number directly to set the rank.</p>
                 <ul id="ranking-list" class="ranking-list"></ul>
                 <button onclick="submitRankings()">Submit Rankings</button>
+            </div>
+        </div>
+
+        <!-- Tie Resolution Phase -->
+        <div id="tie-resolution-section" style="display: none;">
+            <div class="tie-resolution-section">
+                <h3>⚖️ Tie Detected</h3>
+                <p>Multiple nominations received the same score. An administrator will decide how to resolve the tie.</p>
+                <div id="tie-details"></div>
+                <div class="tie-actions">
+                    <p>Please wait for the administrator to resolve the tie, or check back later for final results.</p>
+                    <button onclick="window.location.href='dashboard.php'" class="btn btn-primary">Return to Dashboard</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Runoff Phase -->
+        <div id="runoff-section" style="display: none;">
+            <div class="runoff-section">
+                <h3>🔄 Runoff Vote</h3>
+                <p>The top nominations were tied. Please rank only the tied options to break the tie.</p>
+                <div id="runoff-details"></div>
+                <ul id="runoff-ranking-list" class="ranking-list"></ul>
+                <button onclick="submitRunoffRankings()" class="btn btn-primary">Submit Runoff Rankings</button>
             </div>
         </div>
 
@@ -198,10 +328,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         voteId = urlParams.get('id');
 
-        // Debug: Show what we got from URL
-        document.body.insertAdjacentHTML('afterbegin',
-            '<div style="background: orange; color: white; padding: 10px; margin: 10px;">DEBUG: URL search: ' + window.location.search + ', voteId: ' + voteId + '</div>'
-        );
+        // URL parameter parsing (debug info removed)
 
         if (!voteId || voteId === 'undefined') {
             showMessage('No vote ID provided in URL: ' + window.location.search, 'error');
@@ -235,6 +362,10 @@
                         showNominationInterface();
                     } else if (voteData.phase === 'ranking') {
                         showRankingInterface();
+                    } else if (voteData.phase === 'tie_resolution') {
+                        showTieResolutionInterface();
+                    } else if (voteData.phase === 'runoff') {
+                        showRunoffInterface();
                     } else if (voteData.phase === 'finished') {
                         showResultsInterface();
                     }
@@ -253,7 +384,7 @@
                 const result = await response.json();
 
                 if (!result.success || !result.data.logged_in) {
-                    showMessage('You must be logged in to view this vote. Please log in first.', 'error');
+                    showMessage('You must be logged in to view this vote. <a href="auth.php" style="color: #fff; text-decoration: underline;">Click here to log in</a>.', 'error');
                     return false;
                 }
 
@@ -289,6 +420,10 @@
                 phaseText = '📝 Nomination Phase - Submit your suggestions';
             } else if (phase === 'ranking') {
                 phaseText = '🔀 Ranking Phase - Rank your preferences';
+            } else if (phase === 'tie_resolution') {
+                phaseText = '⚖️ Tie Resolution - Awaiting administrator decision';
+            } else if (phase === 'runoff') {
+                phaseText = '🔄 Runoff Vote - Rank the tied nominations';
             } else if (phase === 'finished') {
                 phaseText = '🏆 Results - Final rankings';
             }
@@ -302,26 +437,7 @@
             document.getElementById('max-nominations').textContent = voteInfo.max_nominations_per_user || 2;
             document.getElementById('max-nominations-2').textContent = voteInfo.max_nominations_per_user || 2;
 
-            // Debug: Check input state
-            setTimeout(() => {
-                const input = document.getElementById('nomination-input');
-                document.body.insertAdjacentHTML('afterbegin',
-                    '<div style="background: purple; color: white; padding: 10px; margin: 10px;">DEBUG: Input disabled: ' + input.disabled + ', Input display: ' + window.getComputedStyle(input).display + '</div>'
-                );
-
-                // Test if input receives events
-                input.addEventListener('focus', () => {
-                    document.body.insertAdjacentHTML('afterbegin',
-                        '<div style="background: green; color: white; padding: 10px; margin: 10px;">DEBUG: Input focused!</div>'
-                    );
-                });
-
-                input.addEventListener('click', () => {
-                    document.body.insertAdjacentHTML('afterbegin',
-                        '<div style="background: blue; color: white; padding: 10px; margin: 10px;">DEBUG: Input clicked!</div>'
-                    );
-                });
-            }, 100);
+            // Input setup completed
 
             // Load existing nominations
             loadNominations();
@@ -330,7 +446,7 @@
         async function showRankingInterface() {
             document.getElementById('ranking-section').style.display = 'block';
             await loadRankingNominations();
-            showMessage('Ranking phase - drag nominations to rank them', 'info');
+            showMessage('Ranking phase - use arrow buttons to rank nominations', 'info');
         }
 
         async function loadRankingNominations() {
@@ -345,20 +461,57 @@
                     (result.data || []).forEach((nom, index) => {
                         const li = document.createElement('li');
                         li.className = 'nomination-item';
-                        li.textContent = nom.text;
-                        li.draggable = true;
                         li.dataset.nominationId = nom.id;
                         li.dataset.rank = index + 1;
 
-                        // Add drag event handlers
-                        li.addEventListener('dragstart', handleDragStart);
-                        li.addEventListener('dragover', handleDragOver);
-                        li.addEventListener('drop', handleDrop);
-                        li.addEventListener('dragenter', handleDragEnter);
-                        li.addEventListener('dragleave', handleDragLeave);
+                        // Create rank number display
+                        const rankNumber = document.createElement('div');
+                        rankNumber.className = 'rank-number';
+                        rankNumber.textContent = index + 1;
+
+                        // Create nomination text
+                        const nominationText = document.createElement('div');
+                        nominationText.className = 'nomination-text';
+                        nominationText.textContent = nom.text;
+
+                        // Create ranking controls
+                        const controls = document.createElement('div');
+                        controls.className = 'ranking-controls';
+
+                        // Add manual rank input
+                        const rankInput = document.createElement('input');
+                        rankInput.type = 'number';
+                        rankInput.className = 'rank-input';
+                        rankInput.min = '1';
+                        rankInput.max = result.data.length;
+                        rankInput.value = index + 1;
+                        rankInput.title = 'Set rank directly';
+                        rankInput.onchange = () => setNominationRank(li, parseInt(rankInput.value));
+
+                        const upBtn = document.createElement('button');
+                        upBtn.className = 'rank-btn';
+                        upBtn.innerHTML = '↑';
+                        upBtn.title = 'Move up';
+                        upBtn.onclick = () => moveNomination(li, 'up');
+
+                        const downBtn = document.createElement('button');
+                        downBtn.className = 'rank-btn';
+                        downBtn.innerHTML = '↓';
+                        downBtn.title = 'Move down';
+                        downBtn.onclick = () => moveNomination(li, 'down');
+
+                        controls.appendChild(rankInput);
+                        controls.appendChild(upBtn);
+                        controls.appendChild(downBtn);
+
+                        li.appendChild(rankNumber);
+                        li.appendChild(nominationText);
+                        li.appendChild(controls);
 
                         rankingList.appendChild(li);
                     });
+
+                    updateRankingButtons();
 
                     if (result.data.length === 0) {
                         rankingList.innerHTML = '<li>No nominations available to rank</li>';
@@ -371,6 +524,169 @@
             }
         }
 
+        async function showTieResolutionInterface() {
+            document.getElementById('tie-resolution-section').style.display = 'block';
+            await loadTieDetails();
+            showMessage('Tie detected - awaiting administrator decision', 'info');
+        }
+
+        async function loadTieDetails() {
+            try {
+                const response = await fetch(`api.php?action=get_results&vote_id=${voteId}`);
+                const result = await response.json();
+
+                if (result.success && result.data.ties_detected) {
+                    const tieDetails = document.getElementById('tie-details');
+                    let html = '<div class="tie-summary"><h4>Tied Nominations:</h4>';
+
+                    result.data.ties_detected.forEach(tie => {
+                        html += `<div class="tie-group">
+                            <strong>Rank ${tie.rank} (${tie.score} points each):</strong>
+                            <ul>`;
+                        tie.nominees.forEach(nominee => {
+                            html += `<li>${nominee.nomination}</li>`;
+                        });
+                        html += '</ul></div>';
+                    });
+
+                    html += '</div>';
+                    tieDetails.innerHTML = html;
+                }
+            } catch (error) {
+                console.error('Error loading tie details:', error);
+            }
+        }
+
+        async function showRunoffInterface() {
+            document.getElementById('runoff-section').style.display = 'block';
+            await loadRunoffNominations();
+            showMessage('Runoff voting - rank only the tied nominations', 'info');
+        }
+
+        async function loadRunoffNominations() {
+            try {
+                const response = await fetch(`api.php?action=get_runoff_nominations&vote_id=${voteId}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const runoffList = document.getElementById('runoff-ranking-list');
+                    runoffList.innerHTML = '';
+
+                    if (result.data.length === 0) {
+                        runoffList.innerHTML = '<li>No runoff nominations available</li>';
+                        return;
+                    }
+
+                    const detailsDiv = document.getElementById('runoff-details');
+                    detailsDiv.innerHTML = `<p><strong>Rank these ${result.data.length} tied nominations</strong> from most preferred (top) to least preferred (bottom):</p>`;
+
+                    result.data.forEach((nom, index) => {
+                        const li = document.createElement('li');
+                        li.className = 'nomination-item';
+                        li.dataset.nominationId = nom.id;
+                        li.dataset.rank = index + 1;
+
+                        // Create rank number display
+                        const rankNumber = document.createElement('div');
+                        rankNumber.className = 'rank-number';
+                        rankNumber.textContent = index + 1;
+
+                        // Create nomination text
+                        const nominationText = document.createElement('div');
+                        nominationText.className = 'nomination-text';
+                        nominationText.textContent = nom.text;
+
+                        // Create ranking controls
+                        const controls = document.createElement('div');
+                        controls.className = 'ranking-controls';
+
+                        // Add manual rank input
+                        const rankInput = document.createElement('input');
+                        rankInput.type = 'number';
+                        rankInput.className = 'rank-input';
+                        rankInput.min = '1';
+                        rankInput.max = result.data.length;
+                        rankInput.value = index + 1;
+                        rankInput.title = 'Set rank directly';
+                        rankInput.onchange = () => setRunoffNominationRank(li, parseInt(rankInput.value));
+
+                        const upBtn = document.createElement('button');
+                        upBtn.className = 'rank-btn';
+                        upBtn.innerHTML = '↑';
+                        upBtn.title = 'Move up';
+                        upBtn.onclick = () => moveRunoffNomination(li, 'up');
+
+                        const downBtn = document.createElement('button');
+                        downBtn.className = 'rank-btn';
+                        downBtn.innerHTML = '↓';
+                        downBtn.title = 'Move down';
+                        downBtn.onclick = () => moveRunoffNomination(li, 'down');
+
+                        controls.appendChild(rankInput);
+                        controls.appendChild(upBtn);
+                        controls.appendChild(downBtn);
+
+                        li.appendChild(rankNumber);
+                        li.appendChild(nominationText);
+                        li.appendChild(controls);
+
+                        runoffList.appendChild(li);
+                    });
+
+                    updateRunoffRankingButtons();
+
+                } else {
+                    showMessage('Could not load runoff nominations', 'error');
+                }
+            } catch (error) {
+                showMessage('Error loading runoff nominations: ' + error.message, 'error');
+            }
+        }
+
+        async function submitRunoffRankings() {
+            const items = document.querySelectorAll('#runoff-ranking-list .nomination-item');
+            if (items.length === 0) {
+                showMessage('No nominations to rank', 'error');
+                return;
+            }
+
+            const rankings = [];
+            items.forEach((item, index) => {
+                rankings.push({
+                    nomination_id: parseInt(item.dataset.nominationId),
+                    rank: index + 1
+                });
+            });
+
+            try {
+                const response = await fetch('api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'submit_runoff_rankings',
+                        user_id: currentUser.id,
+                        vote_id: voteId,
+                        rankings: rankings
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showMessage('Runoff rankings submitted successfully! Returning to dashboard...', 'success');
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.php';
+                    }, 2000);
+                } else {
+                    showMessage('Failed to submit runoff rankings: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showMessage('Error submitting runoff rankings: ' + error.message, 'error');
+            }
+        }
+
         async function showResultsInterface() {
             document.getElementById('results-section').style.display = 'block';
             await loadResults();
@@ -379,15 +695,14 @@
 
         async function loadResults() {
             try {
-                console.log('Loading results for vote:', voteId);
                 const response = await fetch(`api.php?action=get_results&vote_id=${voteId}`);
                 const result = await response.json();
-                console.log('Results API response:', result);
 
                 if (result.success) {
                     const resultsContent = document.getElementById('results-content');
+                    const data = result.data;
 
-                    if (!result.data || result.data.length === 0) {
+                    if (!data.results || data.results.length === 0) {
                         resultsContent.innerHTML = '<p>No results available yet. Make sure all participants have submitted their rankings.</p>';
                         return;
                     }
@@ -396,19 +711,52 @@
                         <div class="results-summary">
                             <h4>🏆 Final Rankings (Borda Count Method)</h4>
                             <p>Rankings calculated using the Borda Count method where each nomination receives points based on its ranking position.</p>
+                    `;
+
+                    if (data.using_runoff_results) {
+                        html += `
+                            <div class="runoff-notice">
+                                <strong>🗳️ Runoff Results:</strong> These results are based on the runoff vote that resolved ties among the top contenders.
+                            </div>
+                        `;
+                    }
+
+                    if (data.using_random_resolution) {
+                        html += `
+                            <div class="random-notice">
+                                <strong>🎲 Random Resolution:</strong> Ties were resolved using random selection to determine final rankings.
+                            </div>
+                        `;
+                    }
+
+                    if (data.tiebreaking_applied) {
+                        html += `
+                            <div class="tiebreaker-notice">
+                                <strong>⚖️ Tiebreaking Applied:</strong> Some nominations had equal Borda scores.
+                                Ties broken by: ${data.tiebreaking_method}
+                            </div>
+                        `;
+                    }
+
+                    html += `
                         </div>
                         <div class="results-list">
                     `;
 
-                    result.data.forEach((item, index) => {
+                    data.results.forEach((item, index) => {
                         const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
                         const isWinner = index === 0;
+
+                        let scoreDisplay = `${item.score} points`;
+                        if (data.tiebreaking_applied && item.first_place_votes > 0) {
+                            scoreDisplay += ` (${item.first_place_votes} first-place votes)`;
+                        }
 
                         html += `
                             <div class="result-item ${isWinner ? 'winner' : ''}">
                                 <div class="result-rank">${medal}</div>
                                 <div class="result-nomination">${item.nomination}</div>
-                                <div class="result-score">${item.score} points</div>
+                                <div class="result-score">${scoreDisplay}</div>
                             </div>
                         `;
                     });
@@ -417,7 +765,10 @@
                         </div>
                         <div class="results-footer">
                             <p><small>Higher scores indicate more preferred options. Points are awarded based on ranking positions across all participants.</small></p>
-                            <button onclick="window.location.href='dashboard.php'" class="btn btn-primary">Return to Dashboard</button>
+                            <div style="display: flex; gap: 10px; justify-content: center;">
+                                <button onclick="window.location.href='dashboard.php'" class="btn btn-primary">Return to Dashboard</button>
+                                <button onclick="window.location.href='admin.php'" class="btn btn-secondary">Admin Panel</button>
+                            </div>
                         </div>
                     `;
 
@@ -600,60 +951,181 @@
             }
         }
 
-        let draggedElement = null;
-
-        function handleDragStart(e) {
-            draggedElement = this;
-            this.style.opacity = '0.5';
-        }
-
-        function handleDragEnter(e) {
-            this.classList.add('drag-over');
-        }
-
-        function handleDragLeave(e) {
-            this.classList.remove('drag-over');
-        }
-
-        function handleDragOver(e) {
-            if (e.preventDefault) {
-                e.preventDefault();
-            }
-            return false;
-        }
-
-        function handleDrop(e) {
-            if (e.stopPropagation) {
-                e.stopPropagation();
-            }
-
-            if (draggedElement !== this) {
-                const rankingList = document.getElementById('ranking-list');
-                const allItems = Array.from(rankingList.children);
-                const draggedIndex = allItems.indexOf(draggedElement);
-                const targetIndex = allItems.indexOf(this);
-
-                if (draggedIndex < targetIndex) {
-                    rankingList.insertBefore(draggedElement, this.nextSibling);
-                } else {
-                    rankingList.insertBefore(draggedElement, this);
-                }
-
-                // Update ranks
-                updateRankNumbers();
-            }
-
-            this.classList.remove('drag-over');
-            draggedElement.style.opacity = '1';
-            return false;
-        }
 
         function updateRankNumbers() {
             const items = document.querySelectorAll('#ranking-list .nomination-item');
             items.forEach((item, index) => {
                 item.dataset.rank = index + 1;
+                const rankNumber = item.querySelector('.rank-number');
+                const rankInput = item.querySelector('.rank-input');
+                if (rankNumber) {
+                    rankNumber.textContent = index + 1;
+                }
+                if (rankInput) {
+                    rankInput.value = index + 1;
+                }
             });
         }
+
+        function setNominationRank(item, newRank) {
+            const rankingList = document.getElementById('ranking-list');
+            const allItems = Array.from(rankingList.children);
+            const totalItems = allItems.length;
+
+            // Validate input
+            if (newRank < 1 || newRank > totalItems) {
+                updateRankNumbers(); // Reset to current values
+                return;
+            }
+
+            const currentIndex = allItems.indexOf(item);
+            const targetIndex = newRank - 1;
+
+            if (currentIndex === targetIndex) {
+                return; // No change needed
+            }
+
+            // Remove item from current position
+            rankingList.removeChild(item);
+
+            // Insert at new position
+            if (targetIndex === 0) {
+                rankingList.insertBefore(item, allItems[0]);
+            } else if (targetIndex >= totalItems - 1) {
+                rankingList.appendChild(item);
+            } else {
+                const targetItem = allItems[targetIndex];
+                if (currentIndex < targetIndex) {
+                    rankingList.insertBefore(item, targetItem.nextSibling);
+                } else {
+                    rankingList.insertBefore(item, targetItem);
+                }
+            }
+
+            updateRankNumbers();
+            updateRankingButtons();
+        }
+
+        function moveNomination(item, direction) {
+            const rankingList = document.getElementById('ranking-list');
+            const allItems = Array.from(rankingList.children);
+            const currentIndex = allItems.indexOf(item);
+
+            if (direction === 'up' && currentIndex > 0) {
+                // Move up (swap with previous item)
+                rankingList.insertBefore(item, allItems[currentIndex - 1]);
+            } else if (direction === 'down' && currentIndex < allItems.length - 1) {
+                // Move down (swap with next item)
+                rankingList.insertBefore(allItems[currentIndex + 1], item);
+            }
+
+            updateRankNumbers();
+            updateRankingButtons();
+        }
+
+        function updateRankingButtons() {
+            const items = document.querySelectorAll('#ranking-list .nomination-item');
+            items.forEach((item, index) => {
+                const upBtn = item.querySelector('.rank-btn:nth-child(2)'); // First button after input
+                const downBtn = item.querySelector('.rank-btn:nth-child(3)'); // Second button after input
+
+                if (upBtn) {
+                    upBtn.disabled = (index === 0);
+                }
+                if (downBtn) {
+                    downBtn.disabled = (index === items.length - 1);
+                }
+            });
+        }
+
+
+
+        function updateRunoffRankNumbers() {
+            const items = document.querySelectorAll('#runoff-ranking-list .nomination-item');
+            items.forEach((item, index) => {
+                item.dataset.rank = index + 1;
+                const rankNumber = item.querySelector('.rank-number');
+                const rankInput = item.querySelector('.rank-input');
+                if (rankNumber) {
+                    rankNumber.textContent = index + 1;
+                }
+                if (rankInput) {
+                    rankInput.value = index + 1;
+                }
+            });
+        }
+
+        function setRunoffNominationRank(item, newRank) {
+            const runoffList = document.getElementById('runoff-ranking-list');
+            const allItems = Array.from(runoffList.children);
+            const totalItems = allItems.length;
+
+            // Validate input
+            if (newRank < 1 || newRank > totalItems) {
+                updateRunoffRankNumbers(); // Reset to current values
+                return;
+            }
+
+            const currentIndex = allItems.indexOf(item);
+            const targetIndex = newRank - 1;
+
+            if (currentIndex === targetIndex) {
+                return; // No change needed
+            }
+
+            // Remove item from current position
+            runoffList.removeChild(item);
+
+            // Insert at new position
+            if (targetIndex === 0) {
+                runoffList.insertBefore(item, allItems[0]);
+            } else if (targetIndex >= totalItems - 1) {
+                runoffList.appendChild(item);
+            } else {
+                const targetItem = allItems[targetIndex];
+                if (currentIndex < targetIndex) {
+                    runoffList.insertBefore(item, targetItem.nextSibling);
+                } else {
+                    runoffList.insertBefore(item, targetItem);
+                }
+            }
+
+            updateRunoffRankNumbers();
+            updateRunoffRankingButtons();
+        }
+
+        function moveRunoffNomination(item, direction) {
+            const runoffList = document.getElementById('runoff-ranking-list');
+            const allItems = Array.from(runoffList.children);
+            const currentIndex = allItems.indexOf(item);
+
+            if (direction === 'up' && currentIndex > 0) {
+                // Move up (swap with previous item)
+                runoffList.insertBefore(item, allItems[currentIndex - 1]);
+            } else if (direction === 'down' && currentIndex < allItems.length - 1) {
+                // Move down (swap with next item)
+                runoffList.insertBefore(allItems[currentIndex + 1], item);
+            }
+
+            updateRunoffRankNumbers();
+            updateRunoffRankingButtons();
+        }
+
+        function updateRunoffRankingButtons() {
+            const items = document.querySelectorAll('#runoff-ranking-list .nomination-item');
+            items.forEach((item, index) => {
+                const upBtn = item.querySelector('.rank-btn:nth-child(2)'); // First button after input
+                const downBtn = item.querySelector('.rank-btn:nth-child(3)'); // Second button after input
+
+                if (upBtn) {
+                    upBtn.disabled = (index === 0);
+                }
+                if (downBtn) {
+                    downBtn.disabled = (index === items.length - 1);
+                }
+            });
+        }
+
 
         async function submitRankings() {
             const items = document.querySelectorAll('#ranking-list .nomination-item');

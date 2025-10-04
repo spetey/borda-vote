@@ -99,53 +99,6 @@ if (basename($_SERVER['PHP_SELF']) === 'auth_api.php') {
     $action = $input['action'] ?? $_GET['action'] ?? '';
 
     switch ($action) {
-    case 'register':
-        if ($method !== 'POST') {
-            jsonResponse(false, null, 'Method not allowed');
-        }
-
-        $username = trim($input['username'] ?? '');
-        $email = trim($input['email'] ?? '');
-        $displayName = trim($input['display_name'] ?? '');
-        $password = $input['password'] ?? '';
-
-        // Validation
-        if (!$username || !$email || !$displayName || !$password) {
-            jsonResponse(false, null, 'All fields are required');
-        }
-
-        if (strlen($password) < 6) {
-            jsonResponse(false, null, 'Password must be at least 6 characters');
-        }
-
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            jsonResponse(false, null, 'Invalid email address');
-        }
-
-        try {
-            $pdo = getDb();
-
-            // Check if username or email already exists
-            $stmt = $pdo->prepare('SELECT COUNT(*) FROM global_users WHERE username = ? OR email = ?');
-            $stmt->execute([$username, $email]);
-            if ($stmt->fetchColumn() > 0) {
-                jsonResponse(false, null, 'Username or email already exists');
-            }
-
-            // Create user
-            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare('
-                INSERT INTO global_users (username, email, display_name, password_hash)
-                VALUES (?, ?, ?, ?)
-            ');
-            $stmt->execute([$username, $email, $displayName, $passwordHash]);
-
-            jsonResponse(true, ['message' => 'User registered successfully']);
-
-        } catch (PDOException $e) {
-            jsonResponse(false, null, 'Registration failed: ' . $e->getMessage());
-        }
-        break;
 
     case 'login':
         if ($method !== 'POST') {
@@ -188,6 +141,56 @@ if (basename($_SERVER['PHP_SELF']) === 'auth_api.php') {
 
         } catch (PDOException $e) {
             jsonResponse(false, null, 'Login failed: ' . $e->getMessage());
+        }
+        break;
+
+    case 'change_password':
+        $currentUser = getCurrentUser();
+        if (!$currentUser) {
+            jsonResponse(false, null, 'Authentication required');
+        }
+
+        $currentPassword = $input['current_password'] ?? '';
+        $newPassword = $input['new_password'] ?? '';
+        $confirmPassword = $input['confirm_password'] ?? '';
+
+        // Validation
+        if (!$currentPassword || !$newPassword || !$confirmPassword) {
+            jsonResponse(false, null, 'All fields are required');
+        }
+
+        if ($newPassword !== $confirmPassword) {
+            jsonResponse(false, null, 'New passwords do not match');
+        }
+
+        if (strlen($newPassword) < 6) {
+            jsonResponse(false, null, 'New password must be at least 6 characters');
+        }
+
+        try {
+            $pdo = getDb();
+
+            // Verify current password
+            if (!password_verify($currentPassword, $currentUser['password_hash'])) {
+                jsonResponse(false, null, 'Current password is incorrect');
+            }
+
+            // Add must_change_password column if it doesn't exist
+            try {
+                $pdo->exec('ALTER TABLE global_users ADD COLUMN must_change_password INTEGER DEFAULT 0');
+            } catch (PDOException $e) {
+                // Column might already exist, which is fine
+            }
+
+            // Update password and clear must_change_password flag
+            $newPasswordHash = password_hash($newPassword, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare('UPDATE global_users SET password_hash = ?, must_change_password = 0 WHERE id = ?');
+            $stmt->execute([$newPasswordHash, $currentUser['id']]);
+
+            jsonResponse(true, ['message' => 'Password changed successfully']);
+
+        } catch (PDOException $e) {
+            jsonResponse(false, null, 'Database error: ' . $e->getMessage());
         }
         break;
 

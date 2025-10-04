@@ -1,0 +1,50 @@
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary/utility files (delete after use)
+hash_password.php
+
+# Legacy setup files (not needed for clean deployment)
+setup_users.php
+
+# Environment/config files with sensitive data
+config_local.php
+.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node modules (if you ever add any JS tooling)
+node_modules/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Screenshots (for development)
+screenshots/
+
+# Any personal notes
+NOTES.md
+TODO.md

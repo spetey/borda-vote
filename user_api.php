@@ -15,31 +15,18 @@ switch ($action) {
         try {
             $pdo = getDb();
 
-            // Get user's votes
+            // Get user's votes (exclude archived)
             $stmt = $pdo->prepare('
                 SELECT v.*, v.id as vote_id, uv.role, uv.has_nominated, uv.has_ranked
                 FROM votes v
                 JOIN user_votes uv ON v.id = uv.vote_id
-                WHERE uv.user_id = ?
+                WHERE uv.user_id = ? AND (v.archived IS NULL OR v.archived = 0)
                 ORDER BY v.created_at DESC
             ');
             $stmt->execute([$user['id']]);
             $userVotes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Get available votes (public votes the user isn't already in)
-            $stmt = $pdo->prepare('
-                SELECT v.*, COUNT(DISTINCT uv.user_id) as total_users
-                FROM votes v
-                LEFT JOIN user_votes uv ON v.id = uv.vote_id
-                WHERE v.id NOT IN (
-                    SELECT vote_id FROM user_votes WHERE user_id = ?
-                )
-                GROUP BY v.id
-                ORDER BY v.created_at DESC
-                LIMIT 10
-            ');
-            $stmt->execute([$user['id']]);
-            $availableVotes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            // No longer showing available votes - invite-only system
 
             // Calculate stats
             $totalVotes = count($userVotes);
@@ -68,7 +55,6 @@ switch ($action) {
             jsonResponse(true, [
                 'user' => $user,
                 'user_votes' => $userVotes,
-                'available_votes' => $availableVotes,
                 'stats' => $stats
             ]);
 
@@ -124,7 +110,7 @@ switch ($action) {
                 FROM votes v
                 JOIN user_votes uv ON v.id = uv.vote_id
                 LEFT JOIN user_votes uv2 ON v.id = uv2.vote_id
-                WHERE uv.user_id = ?
+                WHERE uv.user_id = ? AND (v.archived IS NULL OR v.archived = 0)
                 GROUP BY v.id
                 ORDER BY v.created_at DESC
             ');
