@@ -3,7 +3,21 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
-This is a Borda Count Voting App - a web-based voting system for group decision-making using the Borda count method. The project is currently in the specification phase with detailed requirements documented in `borda_specs.md`.
+This is a Borda Count Voting App - a web-based voting system for group decision-making using the Borda count method. The project is deployed and running in production.
+
+## Deployment Process (Steve's NFS Setup)
+This project deploys to stevepetersen.net/borda/ using git subtree integration:
+
+1. **Make changes in this repo** (`/home/spetey/Documents/github/online-borda/`)
+2. **Commit and push to GitHub** as normal
+3. **Go to main website repo** (wherever that is)
+4. **Pull updates using subtree**:
+   ```bash
+   git subtree pull --prefix=borda /home/spetey/Documents/github/online-borda master --squash
+   ```
+5. **Push website repo to NFS** as normal
+
+**Why `--squash`?** This combines all commits from the borda repo into a single commit in the main website repo, keeping the history clean and avoiding merge complexity.
 
 ## Architecture
 - **Frontend**: Single HTML file with embedded CSS/JavaScript (vanilla JS, no frameworks)
