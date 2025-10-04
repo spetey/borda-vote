@@ -42,7 +42,7 @@ The Borda Count is a ranked voting system where voters rank options in order of 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/borda-vote.git
+   git clone https://github.com/spetey/borda-vote.git
    cd borda-vote
    ```
 
@@ -155,11 +155,11 @@ Contributions are welcome! Please:
 
 ## 📄 License
 
-[Add your preferred license here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🐛 Issues & Support
 
-Found a bug or need help? Please [open an issue](https://github.com/yourusername/borda-vote/issues) with:
+Found a bug or need help? Please [open an issue](https://github.com/spetey/borda-vote/issues) with:
 - Your PHP version
 - Steps to reproduce the problem
 - Any error messages
