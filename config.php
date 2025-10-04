@@ -1,9 +1,19 @@
 <?php
 // Authored or modified by Claude - 2025-09-25
-// Development configuration
+// Configuration with environment detection
 
-// Database configuration
-define('DB_PATH', __DIR__ . '/database/votes.sqlite');
+// Detect environment and set configuration
+$isProduction = isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'stevepetersen.net') !== false;
+
+if ($isProduction) {
+    // Production settings (NFS)
+    define('DB_PATH', '/home/public/borda_vote.db');
+    define('DEBUG', false);
+} else {
+    // Development settings
+    define('DB_PATH', __DIR__ . '/database/votes.sqlite');
+    define('DEBUG', true);
+}
 
 // Email configuration (for notifications)
 define('SMTP_HOST', 'smtp.example.com');
@@ -17,9 +27,6 @@ define('FROM_NAME', 'Borda Vote System');
 define('SESSION_TIMEOUT', 3600); // 1 hour
 define('MAX_NOMINATION_LENGTH', 500);
 define('BCRYPT_ROUNDS', 12);
-
-// Debug mode
-define('DEBUG', true);
 
 // Enable error reporting for debugging
 if (DEBUG) {

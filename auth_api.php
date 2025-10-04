@@ -277,47 +277,6 @@ if (basename($_SERVER['PHP_SELF']) === 'auth_api.php') {
         }
         break;
 
-    case 'change_password':
-        if ($method !== 'POST') {
-            jsonResponse(false, null, 'Method not allowed');
-        }
-
-        $user = requireAuth();
-
-        $currentPassword = $input['current_password'] ?? '';
-        $newPassword = $input['new_password'] ?? '';
-
-        if (!$currentPassword || !$newPassword) {
-            jsonResponse(false, null, 'Current and new passwords are required');
-        }
-
-        if (strlen($newPassword) < 6) {
-            jsonResponse(false, null, 'New password must be at least 6 characters');
-        }
-
-        try {
-            $pdo = getDb();
-
-            // Get current password hash
-            $stmt = $pdo->prepare('SELECT password_hash FROM global_users WHERE id = ?');
-            $stmt->execute([$user['id']]);
-            $currentHash = $stmt->fetchColumn();
-
-            if (!password_verify($currentPassword, $currentHash)) {
-                jsonResponse(false, null, 'Current password is incorrect');
-            }
-
-            // Update password
-            $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare('UPDATE global_users SET password_hash = ? WHERE id = ?');
-            $stmt->execute([$newHash, $user['id']]);
-
-            jsonResponse(true, ['message' => 'Password changed successfully']);
-
-        } catch (PDOException $e) {
-            jsonResponse(false, null, 'Password change failed: ' . $e->getMessage());
-        }
-        break;
 
     default:
         jsonResponse(false, null, 'Invalid action');
