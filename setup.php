@@ -12,7 +12,7 @@ function createDatabase() {
         $pdo->exec("CREATE TABLE IF NOT EXISTS votes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
-            max_nominations_per_user INTEGER DEFAULT 2,
+            max_nominations INTEGER DEFAULT 2,
             phase TEXT DEFAULT 'nominating',
             nomination_deadline TEXT,
             ranking_deadline TEXT,

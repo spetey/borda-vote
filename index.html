@@ -493,7 +493,7 @@
                 const completeBtn = document.getElementById('mark-complete-btn');
                 const nominationText = document.getElementById('nomination-text');
 
-                counter.textContent = `${userStatus.current_nominations} of ${userStatus.max_nominations_per_user} nominations submitted`;
+                counter.textContent = `${userStatus.current_nominations} of ${userStatus.max_nominations} nominations submitted`;
 
                 // Handle UI state based on completion status
                 if (userStatus.has_nominated) {
@@ -502,7 +502,7 @@
                     completeBtn.style.display = 'none';
                     nominationText.disabled = true;
                     nominationText.placeholder = 'You have completed your nominations';
-                } else if (userStatus.current_nominations >= userStatus.max_nominations_per_user) {
+                } else if (userStatus.current_nominations >= userStatus.max_nominations) {
                     submitBtn.disabled = true;
                     submitBtn.textContent = 'Maximum Reached';
                     completeBtn.style.display = 'inline-block';

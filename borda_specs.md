@@ -23,7 +23,7 @@ A web-based Borda count voting system for group decision-making. Users nominate 
 CREATE TABLE votes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
-    max_nominations_per_user INTEGER DEFAULT 2,
+    max_nominations INTEGER DEFAULT 2,
     phase TEXT DEFAULT 'nominating', -- 'nominating', 'ranking', 'finished'
     nomination_deadline TEXT, -- ISO datetime
     ranking_deadline TEXT,    -- ISO datetime  

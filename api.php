@@ -222,12 +222,12 @@ switch ($action) {
 
         // Check if user is participant and has reached nomination limit
         $stmt = $pdo->prepare('
-            SELECT uv.vote_id, v.max_nominations_per_user, COUNT(n.id) as current_count
+            SELECT uv.vote_id, v.max_nominations, COUNT(n.id) as current_count
             FROM user_votes uv
             JOIN votes v ON uv.vote_id = v.id
             LEFT JOIN nominations n ON n.user_id = uv.user_id AND n.vote_id = uv.vote_id
             WHERE uv.user_id = ? AND uv.vote_id = ?
-            GROUP BY uv.vote_id, v.max_nominations_per_user
+            GROUP BY uv.vote_id, v.max_nominations
         ');
         error_log("DEBUG: Executing query with user_id=" . $input['user_id'] . ", vote_id=" . $input['vote_id']);
         $stmt->execute([$input['user_id'], $input['vote_id']]);
@@ -239,7 +239,7 @@ switch ($action) {
             jsonResponse(false, null, 'User is not a participant in this vote');
         }
 
-        if ($user_info['current_count'] >= $user_info['max_nominations_per_user']) {
+        if ($user_info['current_count'] >= $user_info['max_nominations']) {
             jsonResponse(false, null, 'Maximum nominations reached');
         }
 
@@ -258,7 +258,7 @@ switch ($action) {
         // Only mark as complete if they've reached the maximum
         $newCount = $user_info['current_count'] + 1;
         $autoAdvanced = false;
-        if ($newCount >= $user_info['max_nominations_per_user']) {
+        if ($newCount >= $user_info['max_nominations']) {
             $stmt = $pdo->prepare('UPDATE user_votes SET has_nominated = TRUE WHERE user_id = ? AND vote_id = ?');
             $stmt->execute([$input['user_id'], $user_info['vote_id']]);
 
@@ -612,7 +612,7 @@ switch ($action) {
 
         $pdo = getDb();
         $stmt = $pdo->prepare('
-            SELECT u.has_nominated, u.has_ranked, v.max_nominations_per_user,
+            SELECT u.has_nominated, u.has_ranked, v.max_nominations,
                    COUNT(n.id) as current_nominations
             FROM users u
             JOIN votes v ON u.vote_id = v.id

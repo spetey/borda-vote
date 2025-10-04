@@ -434,8 +434,8 @@
 
         function showNominationInterface() {
             document.getElementById('nomination-section').style.display = 'block';
-            document.getElementById('max-nominations').textContent = voteInfo.max_nominations_per_user || 2;
-            document.getElementById('max-nominations-2').textContent = voteInfo.max_nominations_per_user || 2;
+            document.getElementById('max-nominations').textContent = voteInfo.max_nominations || 2;
+            document.getElementById('max-nominations-2').textContent = voteInfo.max_nominations || 2;
 
             // Input setup completed
 
@@ -833,7 +833,7 @@
                 return;
             }
 
-            const maxNominations = voteInfo.max_nominations_per_user || 2;
+            const maxNominations = voteInfo.max_nominations || 2;
             if (userNominations.length >= maxNominations) {
                 showMessage(`You can only submit ${maxNominations} nominations`, 'error');
                 return;
@@ -866,7 +866,7 @@
                     input.value = '';
 
                     // Check if user has reached max nominations
-                    const maxNominations = voteInfo.max_nominations_per_user || 2;
+                    const maxNominations = voteInfo.max_nominations || 2;
                     if (userNominations.length >= maxNominations) {
                         showMessage('Maximum nominations reached! Returning to dashboard...', 'success');
                         setTimeout(() => {
@@ -897,7 +897,7 @@
             });
 
             // Update button states
-            const maxNominations = voteInfo.max_nominations_per_user || 2;
+            const maxNominations = voteInfo.max_nominations || 2;
             const addButton = document.querySelector('button[onclick="submitNomination()"]');
             const input = document.getElementById('nomination-input');
 

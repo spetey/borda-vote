@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             try {
                 // Insert vote
-                $stmt = $pdo->prepare('INSERT INTO votes (title, max_nominations_per_user, nomination_deadline, ranking_deadline) VALUES (?, ?, ?, ?)');
+                $stmt = $pdo->prepare('INSERT INTO votes (title, max_nominations, nomination_deadline, ranking_deadline) VALUES (?, ?, ?, ?)');
                 $stmt->execute([
                     $input['title'],
                     $input['max_nominations'] ?? 2,

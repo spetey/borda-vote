@@ -7,7 +7,7 @@ $isProduction = isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 's
 
 if ($isProduction) {
     // Production settings (NFS)
-    define('DB_PATH', '/home/public/borda_vote.db');
+    define('DB_PATH', '/home/public/borda/borda_vote.db');
     define('DEBUG', false);
 } else {
     // Development settings
