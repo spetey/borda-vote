@@ -22,7 +22,10 @@ try {
     $stmt->execute();
     $nomination_expired = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+    // DEBUG: Always output to see what's happening
+    echo "DEBUG: Found " . count($nomination_expired) . " expired nomination deadlines\n";
     foreach ($nomination_expired as $vote) {
+        echo "DEBUG: Checking vote ID " . $vote['id'] . " - " . $vote['title'] . "\n";
         // Check if we have any nominations
         $stmt = $pdo->prepare('SELECT COUNT(*) FROM nominations WHERE vote_id = ?');
         $stmt->execute([$vote['id']]);
