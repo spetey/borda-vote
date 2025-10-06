@@ -6,10 +6,18 @@ require_once 'config.php';
 require_once 'email_utils.php';
 
 try {
+    echo "DEBUG: Connecting to database at: " . DB_PATH . "\n";
     $pdo = new PDO('sqlite:' . DB_PATH);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
     $advanced_votes = [];
+
+    // DEBUG: Check what votes exist
+    $test = $pdo->query('SELECT id, title, phase, nomination_deadline FROM votes');
+    echo "DEBUG: All votes in database:\n";
+    while ($row = $test->fetch(PDO::FETCH_ASSOC)) {
+        echo "  ID: {$row['id']}, Title: {$row['title']}, Phase: {$row['phase']}, Deadline: {$row['nomination_deadline']}\n";
+    }
 
     // Check for votes in nomination phase past deadline
     $stmt = $pdo->prepare('
