@@ -341,6 +341,27 @@
             messageDiv.innerHTML = '<div class="message ' + type + '">' + text + '</div>';
         }
 
+        function autoLinkUrls(text) {
+            // Escape HTML to prevent XSS
+            const escapeHtml = (str) => {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            };
+
+            const escapedText = escapeHtml(text);
+
+            // URL regex pattern - matches http://, https://, and www. URLs
+            const urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)/g;
+
+            // Replace URLs with clickable links
+            return escapedText.replace(urlPattern, (url) => {
+                // Add protocol if missing (for www. links)
+                const href = url.startsWith('www.') ? 'http://' + url : url;
+                return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+            });
+        }
+
         async function initializeVote() {
             try {
                 // Check authentication first
@@ -472,7 +493,7 @@
                         // Create nomination text
                         const nominationText = document.createElement('div');
                         nominationText.className = 'nomination-text';
-                        nominationText.textContent = nom.text;
+                        nominationText.innerHTML = autoLinkUrls(nom.text);
 
                         // Create ranking controls
                         const controls = document.createElement('div');
@@ -594,7 +615,7 @@
                         // Create nomination text
                         const nominationText = document.createElement('div');
                         nominationText.className = 'nomination-text';
-                        nominationText.textContent = nom.text;
+                        nominationText.innerHTML = autoLinkUrls(nom.text);
 
                         // Create ranking controls
                         const controls = document.createElement('div');
@@ -755,7 +776,7 @@
                         html += `
                             <div class="result-item ${isWinner ? 'winner' : ''}">
                                 <div class="result-rank">${medal}</div>
-                                <div class="result-nomination">${item.nomination}</div>
+                                <div class="result-nomination">${autoLinkUrls(item.nomination)}</div>
                                 <div class="result-score">${scoreDisplay}</div>
                             </div>
                         `;
@@ -815,7 +836,7 @@
                     (result.data || []).forEach(nom => {
                         const li = document.createElement('li');
                         li.className = 'nomination-item';
-                        li.textContent = nom.text;
+                        li.innerHTML = autoLinkUrls(nom.text);
                         allNomsList.appendChild(li);
                     });
                 }
@@ -892,7 +913,7 @@
             userNominations.forEach(nom => {
                 const li = document.createElement('li');
                 li.className = 'nomination-item';
-                li.textContent = nom.text;
+                li.innerHTML = autoLinkUrls(nom.text);
                 userList.appendChild(li);
             });
 
