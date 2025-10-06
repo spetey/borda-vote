@@ -15,7 +15,7 @@ try {
     $stmt = $pdo->prepare('
         SELECT v.id, v.title, v.nomination_deadline
         FROM votes v
-        WHERE v.phase = "nominating"
+        WHERE v.phase = \'nominating\'
         AND v.nomination_deadline IS NOT NULL
         AND datetime(v.nomination_deadline) <= datetime("now")
     ');
@@ -42,7 +42,7 @@ try {
     $stmt = $pdo->prepare('
         SELECT v.id, v.title, v.ranking_deadline
         FROM votes v
-        WHERE v.phase = "ranking"
+        WHERE v.phase = \'ranking\'
         AND v.ranking_deadline IS NOT NULL
         AND datetime(v.ranking_deadline) <= datetime("now")
     ');
