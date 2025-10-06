@@ -3,7 +3,9 @@
 // Configuration with environment detection
 
 // Detect environment and set configuration
-$isProduction = isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'stevepetersen.net') !== false;
+// Check if we're on NFS (via web request or absolute path check)
+$isProduction = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'stevepetersen.net') !== false)
+                || (strpos(__DIR__, '/home/public/borda') === 0);
 
 if ($isProduction) {
     // Production settings (NFS)
