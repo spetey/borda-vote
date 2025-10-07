@@ -352,13 +352,25 @@
             const escapedText = escapeHtml(text);
 
             // URL regex pattern - matches http://, https://, and www. URLs
-            const urlPattern = /(https?:\/\/[^\s]+)|(www\.[^\s]+)/g;
+            // Excludes trailing punctuation like ),.:;!?
+            const urlPattern = /(https?:\/\/[^\s]+?)|(www\.[^\s]+?)/g;
 
             // Replace URLs with clickable links
             return escapedText.replace(urlPattern, (url) => {
+                // Remove trailing punctuation
+                const trailingPunct = /[),.:;!?]+$/;
+                let cleanUrl = url;
+                let trailing = '';
+
+                const match = url.match(trailingPunct);
+                if (match) {
+                    trailing = match[0];
+                    cleanUrl = url.slice(0, -trailing.length);
+                }
+
                 // Add protocol if missing (for www. links)
-                const href = url.startsWith('www.') ? 'http://' + url : url;
-                return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+                const href = cleanUrl.startsWith('www.') ? 'http://' + cleanUrl : cleanUrl;
+                return `<a href="${href}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${trailing}`;
             });
         }
 
