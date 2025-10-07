@@ -67,6 +67,8 @@
             border-radius: 5px;
             border: 2px solid #ddd;
             transition: all 0.2s ease;
+        }
+        .nomination-item.with-controls {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -493,7 +495,7 @@
 
                     (result.data || []).forEach((nom, index) => {
                         const li = document.createElement('li');
-                        li.className = 'nomination-item';
+                        li.className = 'nomination-item with-controls';
                         li.dataset.nominationId = nom.id;
                         li.dataset.rank = index + 1;
 
@@ -615,7 +617,7 @@
 
                     result.data.forEach((nom, index) => {
                         const li = document.createElement('li');
-                        li.className = 'nomination-item';
+                        li.className = 'nomination-item with-controls';
                         li.dataset.nominationId = nom.id;
                         li.dataset.rank = index + 1;
 
