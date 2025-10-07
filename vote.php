@@ -352,12 +352,12 @@
             const escapedText = escapeHtml(text);
 
             // URL regex pattern - matches http://, https://, and www. URLs
-            // Excludes trailing punctuation like ),.:;!?
-            const urlPattern = /(https?:\/\/[^\s]+?)|(www\.[^\s]+?)/g;
+            // Matches everything except whitespace and common trailing punctuation
+            const urlPattern = /(https?:\/\/[^\s<>]+)|(www\.[^\s<>]+)/g;
 
             // Replace URLs with clickable links
             return escapedText.replace(urlPattern, (url) => {
-                // Remove trailing punctuation
+                // Remove trailing punctuation (but keep it in the text)
                 const trailingPunct = /[),.:;!?]+$/;
                 let cleanUrl = url;
                 let trailing = '';
