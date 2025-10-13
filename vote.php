@@ -76,6 +76,15 @@
         .nomination-item:hover {
             background: #f8f9fa;
         }
+        .nomination-item.clickable {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .nomination-item.clickable:hover {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+            transform: translateX(5px);
+        }
         .nomination-text {
             flex: 1;
             padding-left: 10px;
@@ -260,6 +269,7 @@
             <div class="nomination-form">
                 <h3>Submit Your Nominations</h3>
                 <p>You can submit up to <span id="max-nominations">2</span> nominations.</p>
+                <p id="past-nominations-hint" style="display: none; font-size: 0.9em; color: #666; font-style: italic;">💡 Tip: Scroll down to see your past nominations from other votes</p>
                 <div>
                     <input type="text" id="nomination-input" placeholder="Enter your nomination..." maxlength="500">
                     <button onclick="submitNomination()">Add Nomination</button>
@@ -276,6 +286,12 @@
             <div id="all-nominations">
                 <h4>All Nominations So Far:</h4>
                 <ul id="all-nominations-list" class="nomination-list"></ul>
+            </div>
+
+            <div id="past-nominations-section" style="display: none; margin-top: 30px; padding-top: 20px; border-top: 2px dashed #ddd;">
+                <h4>💡 Your Past Nominations (click to use):</h4>
+                <p style="font-size: 0.9em; color: #666; margin-bottom: 10px;">Click any past nomination to copy it to the input field above</p>
+                <ul id="past-nominations-list" class="nomination-list"></ul>
             </div>
         </div>
 
@@ -476,6 +492,9 @@
 
             // Load existing nominations
             loadNominations();
+
+            // Load past nominations as suggestions
+            loadPastNominations();
         }
 
         async function showRankingInterface() {
@@ -856,6 +875,51 @@
                 }
             } catch (error) {
                 console.log('Could not load all nominations:', error.message);
+            }
+        }
+
+        async function loadPastNominations() {
+            try {
+                const response = await fetch(`api.php?action=get_past_nominations&user_id=${currentUser.id}&vote_id=${voteId}`);
+                const result = await response.json();
+
+                if (result.success && result.data && result.data.length > 0) {
+                    const pastNomsList = document.getElementById('past-nominations-list');
+                    const pastSection = document.getElementById('past-nominations-section');
+                    const pastHint = document.getElementById('past-nominations-hint');
+                    pastNomsList.innerHTML = '';
+
+                    result.data.forEach(nomination => {
+                        const li = document.createElement('li');
+                        li.className = 'nomination-item clickable';
+                        li.innerHTML = autoLinkUrls(nomination);
+                        li.title = 'Click to use this nomination';
+
+                        // Add click handler to populate the input field
+                        li.onclick = () => {
+                            const input = document.getElementById('nomination-input');
+                            input.value = nomination;
+                            input.focus();
+                            // Scroll back to top
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                            showMessage('Nomination text copied to input field', 'info');
+                        };
+
+                        pastNomsList.appendChild(li);
+                    });
+
+                    // Show the section and hint if there are past nominations
+                    pastSection.style.display = 'block';
+                    pastHint.style.display = 'block';
+                } else {
+                    // Hide the section and hint if no past nominations
+                    document.getElementById('past-nominations-section').style.display = 'none';
+                    document.getElementById('past-nominations-hint').style.display = 'none';
+                }
+            } catch (error) {
+                console.log('Could not load past nominations:', error.message);
+                document.getElementById('past-nominations-section').style.display = 'none';
+                document.getElementById('past-nominations-hint').style.display = 'none';
             }
         }
 

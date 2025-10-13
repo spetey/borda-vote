@@ -209,6 +209,31 @@ switch ($action) {
         jsonResponse(true, $nominations);
         break;
 
+    case 'get_past_nominations':
+        $user_id = $_GET['user_id'] ?? null;
+        $current_vote_id = $_GET['vote_id'] ?? null;
+
+        if (!$user_id || !$current_vote_id) {
+            jsonResponse(false, null, 'User ID and vote ID are required');
+        }
+
+        $pdo = getDb();
+        // Get distinct past nominations from this user, excluding current vote
+        // Order by most recent usage
+        $stmt = $pdo->prepare('
+            SELECT DISTINCT text, MAX(created_at) as last_used
+            FROM nominations
+            WHERE user_id = ? AND vote_id != ?
+            GROUP BY LOWER(text)
+            ORDER BY last_used DESC
+            LIMIT 20
+        ');
+        $stmt->execute([$user_id, $current_vote_id]);
+        $past_nominations = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+
+        jsonResponse(true, $past_nominations);
+        break;
+
     case 'submit_nomination':
         if (!validateInput($input, ['user_id', 'vote_id', 'text'])) {
             jsonResponse(false, null, 'User ID, vote ID, and text are required');
