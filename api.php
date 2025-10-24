@@ -611,7 +611,7 @@ switch ($action) {
 
         $pdo = getDb();
         $stmt = $pdo->prepare('
-            SELECT v.title, v.phase, v.nomination_deadline, v.ranking_deadline,
+            SELECT v.title, v.phase, v.max_nominations, v.nomination_deadline, v.ranking_deadline,
                    COUNT(DISTINCT uv.user_id) as total_users,
                    COUNT(DISTINCT CASE WHEN uv.has_nominated = 1 THEN uv.user_id END) as users_nominated,
                    COUNT(DISTINCT CASE WHEN uv.has_ranked = 1 THEN uv.user_id END) as users_ranked,
