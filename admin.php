@@ -1052,16 +1052,25 @@ if (!$user || $user['role'] !== 'admin') {
         loadVotes();
         loadRegisteredUsers(); // Auto-load users when page loads
 
-        // Set default dates to tomorrow
+        // Set default dates to tomorrow at 11:59 PM local time
+        function formatLocalDatetime(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(23, 59);
-        document.getElementById('nomination-deadline').value = tomorrow.toISOString().slice(0, 16);
+        tomorrow.setHours(23, 59, 0, 0);
+        document.getElementById('nomination-deadline').value = formatLocalDatetime(tomorrow);
 
         const dayAfter = new Date();
         dayAfter.setDate(dayAfter.getDate() + 2);
-        dayAfter.setHours(23, 59);
-        document.getElementById('ranking-deadline').value = dayAfter.toISOString().slice(0, 16);
+        dayAfter.setHours(23, 59, 0, 0);
+        document.getElementById('ranking-deadline').value = formatLocalDatetime(dayAfter);
 
         // Periodically check for deadline advances (every 5 minutes)
         setInterval(() => {
