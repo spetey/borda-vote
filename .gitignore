@@ -44,6 +44,7 @@ node_modules/
 
 # Screenshots (for development)
 screenshots/
+images/
 
 # Any personal notes
 NOTES.md
