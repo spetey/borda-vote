@@ -124,19 +124,67 @@ class EmailUtils {
             $stmt->execute([$voteId]);
             $total_nominations = $stmt->fetchColumn();
 
-            // Get results (simplified version for email)
+            // Get results with tiebreaking data (matching api.php logic)
             $stmt = $pdo->prepare('
                 SELECT n.text as nomination,
-                       SUM(? - r.rank + 1) as score
+                       SUM(? - r.rank + 1) as score,
+                       COUNT(CASE WHEN r.rank = 1 THEN 1 END) as first_place_votes,
+                       COUNT(CASE WHEN r.rank = 2 THEN 1 END) as second_place_votes,
+                       COUNT(CASE WHEN r.rank = 3 THEN 1 END) as third_place_votes,
+                       COUNT(CASE WHEN r.rank = 4 THEN 1 END) as fourth_place_votes,
+                       COUNT(CASE WHEN r.rank = 5 THEN 1 END) as fifth_place_votes
                 FROM nominations n
                 LEFT JOIN rankings r ON n.id = r.nomination_id
                 WHERE n.vote_id = ?
                 GROUP BY n.id, n.text
-                ORDER BY score DESC
-                LIMIT 5
             ');
             $stmt->execute([$total_nominations, $voteId]);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Apply tiebreaking rules (same as api.php)
+            usort($results, function($a, $b) {
+                // Primary sort: Borda score (descending)
+                $scoreComparison = $b['score'] - $a['score'];
+                if ($scoreComparison !== 0) {
+                    return $scoreComparison;
+                }
+
+                // Tiebreaker 1: First place votes (descending)
+                $firstPlaceComparison = $b['first_place_votes'] - $a['first_place_votes'];
+                if ($firstPlaceComparison !== 0) {
+                    return $firstPlaceComparison;
+                }
+
+                // Tiebreaker 2: Second place votes (descending)
+                $secondPlaceComparison = $b['second_place_votes'] - $a['second_place_votes'];
+                if ($secondPlaceComparison !== 0) {
+                    return $secondPlaceComparison;
+                }
+
+                // Tiebreaker 3: Third place votes (descending)
+                $thirdPlaceComparison = $b['third_place_votes'] - $a['third_place_votes'];
+                if ($thirdPlaceComparison !== 0) {
+                    return $thirdPlaceComparison;
+                }
+
+                // Tiebreaker 4: Fourth place votes (descending)
+                $fourthPlaceComparison = $b['fourth_place_votes'] - $a['fourth_place_votes'];
+                if ($fourthPlaceComparison !== 0) {
+                    return $fourthPlaceComparison;
+                }
+
+                // Tiebreaker 5: Fifth place votes (descending)
+                $fifthPlaceComparison = $b['fifth_place_votes'] - $a['fifth_place_votes'];
+                if ($fifthPlaceComparison !== 0) {
+                    return $fifthPlaceComparison;
+                }
+
+                // Final tiebreaker: Lexicographic (alphabetical) order
+                return strcmp($a['nomination'], $b['nomination']);
+            });
+
+            // Return top 5 results only (for email brevity)
+            return array_slice($results, 0, 5);
 
         } catch (Exception $e) {
             return [];
